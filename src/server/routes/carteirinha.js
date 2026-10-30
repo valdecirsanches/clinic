@@ -72,7 +72,8 @@ router.post('/upload', async (req, res) => {
 
     // Monta a URL pública - USA A URL DE PRODUÇÃO
     const serverUrl = process.env.SERVER_DB || process.env.API_URL || process.env.APP_URL || 'https://api.x-star.com.br';
-    const publicUrl = `${serverUrl}/uploads/carteirinhas/${fileName}`;
+    // Link assinado (24 h): o WhatsApp baixa a imagem sem precisar de login
+    const publicUrl = require('../services/uploadsSeguros').assinarUrlUpload(`${serverUrl}/uploads/carteirinhas/${fileName}`, 24 * 3600);
 
     console.log('🪪 URL pública:', publicUrl);
     console.log('🪪🪪🪪 ======================================== FIM ✅\n');

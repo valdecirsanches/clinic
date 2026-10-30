@@ -158,6 +158,13 @@ async function carregarClinicas(forcar = false) {
   return recarregando;
 }
 
+/** O id é de uma clínica cadastrada? */
+async function ehClinicaConhecida(id) {
+  let mapa = await carregarClinicas();
+  if (!mapa.has(String(id))) mapa = await carregarClinicas(true);
+  return mapa.has(String(id));
+}
+
 function esquecerClinicas() {
   clinicasAte = 0;
 }
@@ -537,6 +544,7 @@ module.exports = {
   tokenDaRequisicao,
   definirCookie,
   podeAcessarClinica,
+  ehClinicaConhecida,
   registrarAcessoClinica,
   garantirTabela
 };

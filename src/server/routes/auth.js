@@ -38,6 +38,30 @@ setTimeout(() => {
   );
 }, 8000).unref();
 
+// ⭐ Alerta no log quando alguém ainda usa as senhas de exemplo das versões
+// antigas (admin123 / 123456). Instalações antigas nasceram com elas.
+setTimeout(async () => {
+  try {
+    const rows = await dbGlobal.prepare('SELECT email, tipo, senha FROM usuarios WHERE ativo = 1').all();
+    const fracas = [];
+    for (const r of rows) {
+      for (const tentativa of ['admin123', '123456']) {
+        if (r.senha && (await senhas.conferir(tentativa, r.senha))) {
+          fracas.push(`${r.email} (${r.tipo})`);
+          break;
+        }
+      }
+    }
+    if (fracas.length) {
+      console.warn('🔐 ⚠️ ============ SENHAS DE EXEMPLO EM USO ============');
+      fracas.forEach((f) => console.warn(`🔐 ⚠️ ${f} ainda usa admin123/123456 — troque já.`));
+      console.warn('🔐 ⚠️ ==================================================');
+    }
+  } catch (err) {
+    console.error('🔐 ⚠️ Verificação de senhas de exemplo:', err.message);
+  }
+}, 15000).unref();
+
 /** Monta a resposta de login (sem a senha) com operadora e clínica preferidas */
 async function respostaLogin(row, req, res) {
   let permissoesMenu = [];

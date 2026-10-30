@@ -260,42 +260,64 @@ async function seedInitialData() {
     const [rows] = await poolPromise.execute('SELECT COUNT(*) as count FROM usuarios');
     if (rows[0].count > 0) return;
 
-    console.log('🌱 Populando banco GLOBAL com dados mock...');
-
-    await poolPromise.execute(
-      `INSERT IGNORE INTO operadoras (id, nome, cnpj, razaoSocial, telefone, email, endereco, ativa, criadoEm)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['op1', 'Saúde Total', '12.345.678/0001-90', 'Saúde Total Ltda', '(11) 3456-7890', 'contato@saudetotal.com.br', 'Av. Paulista, 1000 - São Paulo, SP', 1, '2024-01-01']
-    );
-
-    await poolPromise.execute(
-      `INSERT IGNORE INTO clinicas (id, operadoraId, nome, telefone, email, endereco, ativa, criadoEm)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['c1', 'op1', 'Clínica Central', '(11) 3456-7891', 'central@saudetotal.com.br', 'Rua Augusta, 500 - São Paulo, SP', 1, '2024-01-01']
-    );
-
-    await poolPromise.execute(
-      `INSERT IGNORE INTO usuarios (id, nome, email, senha, tipo, operadoraId, clinicaId, ativo, criadoEm)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['u1', 'Admin Sistema', 'admin@easyclin.com', 'admin123', 'super_admin', 'op1', null, 1, '2024-01-01']
-    );
+    // ⭐ Banco novo: cria SÓ o super administrador, com a senha do .env.local
+    // (ADMIN_EMAIL / ADMIN_SENHA). Sem ela, gera uma senha aleatória e mostra
+    // UMA vez no log. Antes, toda instalação nova nascia com
+    // admin@easyclin.com / admin123 e usuários de exemplo — qualquer pessoa
+    // que conhecesse o sistema entrava como super admin.
+    // Dados de demonstração só com SEED_DEMO=1 (ambiente de teste).
+    const senhas = require('./services/senhas');
+    const crypto = require('crypto');
+    const agora = new Date().toISOString();
+    const hoje = agora.split('T')[0];
+    const email = String(process.env.ADMIN_EMAIL || 'admin@easyclin.com').trim();
+    let senha = String(process.env.ADMIN_SENHA || '');
+    const senhaGerada = !senha;
+    if (senhaGerada) senha = crypto.randomBytes(9).toString('base64url');
+    if (senha.length < 8) throw new Error('ADMIN_SENHA precisa ter pelo menos 8 caracteres.');
 
     await poolPromise.execute(
       `INSERT IGNORE INTO usuarios (id, nome, email, senha, tipo, operadoraId, clinicaId, ativo, criadoEm)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['u2', 'Dra. Ana Costa', 'ana@easyclin.com', '123456', 'medico', 'op1', 'c1', 1, '2024-01-01']
+      ['u1', 'Administrador', email, await senhas.gerarHash(senha), 'super_admin', null, null, 1, hoje]
     );
+    console.log('🔐 ============ PRIMEIRO ACESSO ============');
+    console.log(`🔐 Super administrador criado: ${email}`);
+    if (senhaGerada) {
+      console.log(`🔐 Senha gerada (anote e troque após entrar): ${senha}`);
+      console.log('🔐 Para escolher a senha, defina ADMIN_EMAIL e ADMIN_SENHA no .env.local ANTES do primeiro início.');
+    } else {
+      console.log('🔐 Senha: a definida em ADMIN_SENHA no .env.local.');
+    }
+    console.log('🔐 ========================================');
 
-    await poolPromise.execute(
-      `INSERT IGNORE INTO usuarios (id, nome, email, senha, tipo, operadoraId, clinicaId, ativo, criadoEm)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['u3', 'Dr. Carlos Silva', 'carlos@easyclin.com', '123456', 'dentista', 'op1', 'c1', 1, '2024-01-01']
-    );
-
-    console.log('✅ Dados mock GLOBAIS populados!');
+    if (process.env.SEED_DEMO === '1') {
+      console.log('🌱 SEED_DEMO=1: criando operadora, clínica e profissionais de exemplo...');
+      await poolPromise.execute(
+        `INSERT IGNORE INTO operadoras (id, nome, cnpj, razaoSocial, telefone, email, endereco, ativa, criadoEm)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['op1', 'Saúde Total', '12.345.678/0001-90', 'Saúde Total Ltda', '(11) 3456-7890', 'contato@saudetotal.com.br', 'Av. Paulista, 1000 - São Paulo, SP', 1, '2024-01-01']
+      );
+      await poolPromise.execute(
+        `INSERT IGNORE INTO clinicas (id, operadoraId, nome, telefone, email, endereco, ativa, criadoEm)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['c1', 'op1', 'Clínica Central', '(11) 3456-7891', 'central@saudetotal.com.br', 'Rua Augusta, 500 - São Paulo, SP', 1, '2024-01-01']
+      );
+      const senhaDemo = await senhas.gerarHash('demo-' + crypto.randomBytes(6).toString('hex'));
+      await poolPromise.execute(
+        `INSERT IGNORE INTO usuarios (id, nome, email, senha, tipo, operadoraId, clinicaId, ativo, criadoEm)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['u2', 'Dra. Ana Costa', 'ana@easyclin.com', senhaDemo, 'medico', 'op1', 'c1', 1, '2024-01-01']
+      );
+      await poolPromise.execute(
+        `INSERT IGNORE INTO usuarios (id, nome, email, senha, tipo, operadoraId, clinicaId, ativo, criadoEm)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['u3', 'Dr. Carlos Silva', 'carlos@easyclin.com', senhaDemo, 'dentista', 'op1', 'c1', 1, '2024-01-01']
+      );
+      console.log('🌱 Profissionais de exemplo criados SEM senha conhecida: defina pelo cadastro de usuários.');
+    }
 
     // Planos padrão
-    const agora = new Date().toISOString();
     await poolPromise.execute(
       `INSERT IGNORE INTO planos (id, nome, preco, limitePacientes, recursos, destaque, ativo, ordem, criadoEm, atualizadoEm)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

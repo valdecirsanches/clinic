@@ -94,6 +94,17 @@ router.post('/', async (req, res) => {
     cep || null, logradouro || null, numero || null, complemento || null,
     bairro || null, cidade || null, uf || null, plano || 'gratuito', logoUrl || null);
 
+    // ⭐ Prepara o banco da clínica ANTES de responder. Antes as tabelas eram
+    // criadas em segundo plano e as primeiras telas da clínica nova davam erro
+    // 500 ("Table ... doesn't exist") até o servidor ser reiniciado.
+    try {
+      const { getClinicaDBAsync } = require('../databaseClinica');
+      const { runUniversalSchemaMigration } = require('../utils/migrations');
+      await getClinicaDBAsync(id);
+      await runUniversalSchemaMigration(id);
+    } catch (errBanco) {
+      console.error(`⚠️ Banco da clínica ${id} não ficou pronto agora:`, errBanco.message);
+    }
     console.log(`✅ Clínica criada: ${id}`);
     res.json({ id, operadoraId, nome, cnpj, telefone, email, endereco, ativa, criadoEm,
       cep, logradouro, numero, complemento, bairro, cidade, uf, plano: plano || 'gratuito', logoUrl });

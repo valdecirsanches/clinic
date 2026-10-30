@@ -2389,6 +2389,8 @@ router.post('/send-file', async (req, res) => {
     } else {
       tempFileUrl = `${protocol}://${host}/uploads/temp/${encodeURIComponent(tempFileName)}`;
     }
+    // Link assinado (1 h): o WAHA baixa o anexo sem precisar de login
+    tempFileUrl = require('../services/uploadsSeguros').assinarUrlUpload(tempFileUrl, 3600);
     console.log(`📎 ✅ Arquivo temp: ${tempFileSize} bytes → ${tempFileUrl}`);
   } catch (fsErr) {
     console.error(`📎 ❌ Erro ao salvar arquivo temp:`, fsErr.message);

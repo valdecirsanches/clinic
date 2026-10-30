@@ -2214,7 +2214,7 @@ router.post('/webhook', async (req, res) => {
           // ⭐⭐⭐ FIX v19.0: Limpa TODOS os diálogos anteriores antes de abrir novo ⭐⭐⭐
           limparTodosDialogosUsuario(clinicaId, chaveDialogo, `${clinicaId}_9_${ultimos9}`);
           // ⭐⭐⭐ FIX v23.1: Resolve nome correto via consulta > tabela pacientes > telefone ⭐⭐⭐
-          const nomeCorretoV17 = await resolverNomePaciente(dbV10, consultaJaConfirmada, pacienteNome);
+          const nomeCorretoV17 = await resolverNomePaciente(dbParaUpdateV10, consultaJaConfirmada, pacienteNome);
           const idCorretoV17 = consultaJaConfirmada.pacienteId || pacienteId;
           const motivoDataV17 = {
             consultaId: consultaJaConfirmada.id, pacienteId: idCorretoV17, pacienteNome: nomeCorretoV17, clinicaId: clinicaIdParaUpdateV10, timestamp: Date.now()
@@ -2242,7 +2242,7 @@ router.post('/webhook', async (req, res) => {
         } else if (jaConfirmada && consultaJaConfirmada.status === 'confirmada') {
           const profNome = consultaJaConfirmada.profissionalNome || consultaJaConfirmada.profissional || 'o profissional';
           const dataFormatada = formatarData(consultaJaConfirmada.data);
-          const nomeCorretoJaConf = await resolverNomePaciente(dbV10, consultaJaConfirmada, pacienteNome);
+          const nomeCorretoJaConf = await resolverNomePaciente(dbParaUpdateV10, consultaJaConfirmada, pacienteNome);
           const idCorretoJaConf = consultaJaConfirmada.pacienteId || pacienteId;
           const refJaConf = consultaJaConfirmada.id ? `CON-${consultaJaConfirmada.id.replace(/-/g, '').substring(0, 8).toUpperCase()}` : '';
           const msgJaConfirmada = `✅ Olá, ${nomeCorretoJaConf}! Sua consulta já está *confirmada*! 😊\n\n📅 ${dataFormatada} às ${consultaJaConfirmada.horario}\n👨‍⚕️ ${profNome}${refJaConf ? `\n🔖 *Ref:* ${refJaConf}` : ''}\n\nAguardamos você!${!MENU_AJUDA_BLOQUEADO ? ' Se precisar de algo, digite *AJUDA*.' : ''}`;
@@ -2292,7 +2292,7 @@ router.post('/webhook', async (req, res) => {
             const dataFormatada = formatarData(consultaJaConfirmada.data);
             const refV10Conf = consultaJaConfirmada.id ? `CON-${consultaJaConfirmada.id.replace(/-/g, '').substring(0, 8).toUpperCase()}` : '';
             // ⭐⭐⭐ FIX v23.1: Resolve nome correto via consulta > tabela pacientes > telefone ⭐⭐⭐
-            const nomeCorretoV10 = await resolverNomePaciente(dbV10, consultaJaConfirmada, pacienteNome);
+            const nomeCorretoV10 = await resolverNomePaciente(dbParaUpdateV10, consultaJaConfirmada, pacienteNome);
             const idCorretoV10 = consultaJaConfirmada.pacienteId || pacienteId;
             const msgConfirmacao = `✅ *CONSULTA CONFIRMADA!*\n\n📅 ${dataFormatada} às ${consultaJaConfirmada.horario}\n👨‍⚕️ ${profNome}${refV10Conf ? `\n🔖 *Ref:* ${refV10Conf}` : ''}\n\nObrigado, ${nomeCorretoV10}! Sua presença está confirmada.${!MENU_AJUDA_BLOQUEADO ? '\n\n_Se precisar de algo, digite *AJUDA*._' : ''}`;
             await enviarMensagemRobusta(serverUrl, wahaApiKey, from, msgConfirmacao, sessionId);
@@ -2355,7 +2355,7 @@ router.post('/webhook', async (req, res) => {
             limparTodosDialogosUsuario(clinicaId, chaveDialogo, `${clinicaId}_9_${ultimos9}`);
             // ⭐⭐⭐ FIX v10.9.7: Salva motivo com MÚLTIPLAS chaves para matching robusto ⭐⭐⭐
             // ⭐⭐⭐ FIX v23.1: Resolve nome correto via consulta > tabela pacientes > telefone ⭐⭐⭐
-            const nomeCorreto2 = await resolverNomePaciente(dbV10, consultaJaConfirmada, pacienteNome);
+            const nomeCorreto2 = await resolverNomePaciente(dbParaUpdateV10, consultaJaConfirmada, pacienteNome);
             const idCorreto2 = consultaJaConfirmada.pacienteId || pacienteId;
             const motivoData2 = {
               consultaId: consultaJaConfirmada.id, pacienteId: idCorreto2, pacienteNome: nomeCorreto2, clinicaId: clinicaIdParaUpdateV10, timestamp: Date.now()
@@ -2386,7 +2386,7 @@ router.post('/webhook', async (req, res) => {
             // Texto não reconhecido como confirmação/cancelamento - re-prompt
             const profNome = consultaJaConfirmada.profissionalNome || consultaJaConfirmada.profissional || 'o profissional';
             const dataFormatada = formatarData(consultaJaConfirmada.data);
-            const nomeCorretoRP = await resolverNomePaciente(dbV10, consultaJaConfirmada, pacienteNome);
+            const nomeCorretoRP = await resolverNomePaciente(dbParaUpdateV10, consultaJaConfirmada, pacienteNome);
             const idCorretoRP = consultaJaConfirmada.pacienteId || pacienteId;
             const refV10RePrompt = consultaJaConfirmada.id ? `CON-${consultaJaConfirmada.id.replace(/-/g, '').substring(0, 8).toUpperCase()}` : '';
             const msgRePrompt = `Olá, ${nomeCorretoRP}! 👋\n\nVocê tem uma consulta pendente de confirmação:\n\n📅 *Data:* ${dataFormatada}\n🕐 *Horário:* ${consultaJaConfirmada.horario}\n👨‍⚕️ *Profissional:* ${profNome}${refV10RePrompt ? `\n🔖 *Ref:* ${refV10RePrompt}` : ''}\n\nResponda com o número:\n1️⃣ *Confirmar* presença\n2️⃣ *Cancelar* consulta\n\n_Ou responda *SIM* / *NÃO*. Digite *AJUDA* para ver outras opções._`;

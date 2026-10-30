@@ -21,6 +21,7 @@ import {
 import { useToast } from '../hooks/useToast';
 import { formatarTelefoneWhatsApp } from '../services/whatsappMessages';
 import { API_BASE_URL } from '../config/api';
+import { urlComToken } from '../utils/autenticacaoApi';
 import { useWhatsApp } from '../hooks/useWhatsApp';
 import jsPDF from 'jspdf';
 // ⭐ Ícone SVG do WhatsApp
@@ -167,7 +168,7 @@ logoUrl?: string)
   if (!logoUrl) return null;
   const src = logoUrl.startsWith('data:') ?
   logoUrl :
-  `${API_BASE_URL}${logoUrl}`;
+  urlComToken(`${API_BASE_URL}${logoUrl}`); // crossOrigin anônimo não leva cookie
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = new Image();
@@ -2156,9 +2157,6 @@ export function ReciboModal({
                               ...prev,
                               editandoTelefone: false
                             }));
-                            if (whatsappConfirm.telefone) {
-                              buscarFotoContato(whatsappConfirm.telefone);
-                            }
                           }
                         }} />
                       
@@ -2170,9 +2168,6 @@ export function ReciboModal({
                             ...prev,
                             editandoTelefone: false
                           }));
-                          if (whatsappConfirm.telefone) {
-                            buscarFotoContato(whatsappConfirm.telefone);
-                          }
                         }}
                         className="text-xs text-green-600 hover:text-green-800 font-medium px-2 py-1 bg-green-50 rounded">
                         

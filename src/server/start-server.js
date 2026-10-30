@@ -158,17 +158,21 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 // ⭐⭐⭐ FIX: Serve uploads com headers CORS e cache corretos ⭐⭐⭐
+// ⭐ Arquivos de pacientes exigem sessão ou link assinado (services/uploadsSeguros).
+// Cache "private": proxy/CDN (Cloudflare) não pode guardar e servir a terceiros.
+const uploadsSeguros = require(path.join(SERVER_DIR, 'services/uploadsSeguros'));
 app.use('/uploads', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
-  res.setHeader('Cache-Control', 'public, max-age=3600');
+  // "*" não cobre Authorization: precisa vir listado
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, *');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
   // Para requisições OPTIONS (preflight), responde imediatamente
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
   next();
-}, express.static(uploadsDir));
+}, uploadsSeguros.middleware, express.static(uploadsDir));
 
 // ⭐ Pasta de downloads (instaladores, ferramentas, etc.)
 const downloadsDir = path.join(SERVER_DIR, 'downloads');

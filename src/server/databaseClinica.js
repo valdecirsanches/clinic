@@ -527,6 +527,36 @@ async function createClinicaTables(poolPromise, dbName, clinicaId) {
       atualizadoEm VARCHAR(50) NOT NULL
     )`,
 
+  // Convênios — antes só era criada ao abrir a tela de Convênios, e a
+  // listagem de consultas (que faz JOIN com ela) dava erro 500 em clínica nova.
+  // Mesmas colunas de routes/convenios.js (garantirTabelaConvenios).
+  `CREATE TABLE IF NOT EXISTS convenios (
+      id VARCHAR(255) PRIMARY KEY,
+      nome TEXT NOT NULL,
+      razaoSocial TEXT,
+      cnpj TEXT,
+      registroAns TEXT,
+      telefone TEXT,
+      email TEXT,
+      site TEXT,
+      contato TEXT,
+      endereco TEXT,
+      numero TEXT,
+      bairro TEXT,
+      cidade TEXT,
+      uf TEXT,
+      cep TEXT,
+      banco TEXT,
+      agencia TEXT,
+      conta TEXT,
+      diaCobranca INTEGER,
+      diaPagamento INTEGER,
+      validadeGuia INTEGER,
+      observacoes TEXT,
+      ativo INTEGER DEFAULT 1,
+      criadoEm TEXT NOT NULL
+    )`,
+
   // Procedimentos
   `CREATE TABLE IF NOT EXISTS procedimentos (
       id VARCHAR(191) PRIMARY KEY,

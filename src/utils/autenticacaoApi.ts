@@ -52,7 +52,8 @@ const origensDaApi = new Set(
 export function ehUrlDaApi(url: string): boolean {
   try {
     const u = new URL(url, window.location.href);
-    if (!u.pathname.startsWith('/api/')) return false;
+    // /uploads também: arquivos de pacientes exigem sessão
+    if (!u.pathname.startsWith('/api/') && !u.pathname.startsWith('/uploads/')) return false;
     return origensDaApi.has(u.origin) || u.origin === window.location.origin;
   } catch {
     return false;

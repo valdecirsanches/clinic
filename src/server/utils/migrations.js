@@ -622,12 +622,14 @@ const EXPECTED_SCHEMA = {
 // ==================== MIGRAÇÃO UNIVERSAL ====================
 // Compara schema esperado vs real para CADA clínica e adiciona colunas faltantes
 
-async function runUniversalSchemaMigration() {
+async function runUniversalSchemaMigration(somenteClinicaId = null) {
   console.log('\n🔧 ========== MIGRAÇÃO UNIVERSAL DE SCHEMA ==========');
   console.log('📋 Sincronizando TODAS as tabelas de TODAS as clínicas...\n');
 
   try {
-    const clinicas = await dbGlobal.prepare('SELECT id FROM clinicas').all();
+    const clinicas = somenteClinicaId ?
+    await dbGlobal.prepare('SELECT id FROM clinicas WHERE id = ?').all(somenteClinicaId) :
+    await dbGlobal.prepare('SELECT id FROM clinicas').all();
     if (!clinicas || clinicas.length === 0) {
       console.log('ℹ️ Nenhuma clínica encontrada');
       return;

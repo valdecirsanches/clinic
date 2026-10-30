@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, Component } from 'react';
+import { temPermissao } from '../utils/permissoes';
 import {
   ClockIcon,
   PlusIcon,

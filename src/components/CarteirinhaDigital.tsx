@@ -5,6 +5,7 @@ import { Paciente } from '../types';
 import { DownloadIcon, ShareIcon, UserIcon, CalendarIcon, CreditCardIcon, BuildingIcon, PhoneIcon, CheckCircleIcon, Loader2Icon } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { API_BASE_URL } from '../config/api';
+import { urlComToken } from '../utils/autenticacaoApi';
 interface CarteirinhaDigitalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -36,7 +37,8 @@ export function CarteirinhaDigital({
   const fotoUrlFormatada = useMemo(() => {
     if (!fotoUrl) return null;
     if (fotoUrl.startsWith('/uploads')) {
-      return `${API_BASE_URL}${fotoUrl}`;
+      // Com token: o html2canvas (useCORS) baixa a foto sem cookie
+      return urlComToken(`${API_BASE_URL}${fotoUrl}`);
     }
     return fotoUrl;
   }, [fotoUrl]);
