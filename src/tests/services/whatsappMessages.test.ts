@@ -81,19 +81,19 @@ describe('validarTelefone', () => {
 
 describe('formatarTelefoneWhatsApp', () => {
   it('deve adicionar código 55 em telefone sem código do país', () => {
-    expect(formatarTelefoneWhatsApp('11999887766')).toBe('5511999887766');
+    expect(formatarTelefoneWhatsApp('11999887766').numero).toBe('5511999887766');
   });
   it('deve manter código 55 se já existir', () => {
-    expect(formatarTelefoneWhatsApp('5511999887766')).toBe('5511999887766');
+    expect(formatarTelefoneWhatsApp('5511999887766').numero).toBe('5511999887766');
   });
   it('deve remover caracteres especiais', () => {
-    expect(formatarTelefoneWhatsApp('(11) 99988-7766')).toBe('5511999887766');
+    expect(formatarTelefoneWhatsApp('(11) 99988-7766').numero).toBe('5511999887766');
   });
   it('deve remover + do início', () => {
-    expect(formatarTelefoneWhatsApp('+5511999887766')).toBe('5511999887766');
+    expect(formatarTelefoneWhatsApp('+5511999887766').numero).toBe('5511999887766');
   });
   it('deve funcionar com telefone fixo', () => {
-    expect(formatarTelefoneWhatsApp('1133445566')).toBe('551133445566');
+    expect(formatarTelefoneWhatsApp('1133445566').numero).toBe('551133445566');
   });
 });
 
@@ -140,7 +140,7 @@ describe('gerarMensagemLembrete', () => {
     };
     const template = 'Consulta de {especialidade}';
     const msg = gerarMensagemLembrete(pacienteMock, consultaOdonto, CLINICA_NOME, template);
-    expect(msg).toContain('Odontologia');
+    expect(msg).toContain('Odontológica');
   });
   it('deve substituir {duracao} com valor padrão 30 se não informado', () => {
     const consultaSemDuracao = {
@@ -163,19 +163,20 @@ describe('gerarMensagemLembrete', () => {
 // ==================== MENSAGEM DE CONFIRMAÇÃO ====================
 
 describe('gerarMensagemConfirmacao', () => {
-  it('deve gerar mensagem padrão com instruções SIM/NÃO', () => {
+  // As instruções passaram de SIM/NÃO para opções numeradas (1️⃣ confirmar, 2️⃣ cancelar)
+  it('deve gerar mensagem padrão com as opções de resposta', () => {
     const msg = gerarMensagemConfirmacao(pacienteMock, consultaMock, CLINICA_NOME);
     expect(msg).toContain('João da Silva');
-    expect(msg).toContain('SIM');
-    expect(msg).toContain('NÃO');
+    expect(msg).toContain('1️⃣');
+    expect(msg).toContain('2️⃣');
     expect(msg).toContain('Dr. Maria Santos');
   });
-  it('deve adicionar instruções SIM/NÃO se template customizado não as tiver', () => {
+  it('deve adicionar as opções de resposta se o template customizado não as tiver', () => {
     const template = 'Olá {nome}, confirme sua consulta em {data}';
     const msg = gerarMensagemConfirmacao(pacienteMock, consultaMock, CLINICA_NOME, template);
     expect(msg).toContain('João da Silva');
-    expect(msg).toContain('SIM');
-    expect(msg).toContain('NÃO');
+    expect(msg).toContain('1️⃣');
+    expect(msg).toContain('2️⃣');
   });
   it('NÃO deve duplicar instruções se template já contém SIM/NÃO', () => {
     const template = 'Olá {nome}! Responda SIM para confirmar ou NÃO para cancelar';

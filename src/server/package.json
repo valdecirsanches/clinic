@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node start-server.js",
     "dev": "nodemon start-server.js",
-    "migrate:usuarios": "node migrate-usuarios-mysql.js"
+    "migrate:usuarios": "node scripts/legado/migrate-usuarios-mysql.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

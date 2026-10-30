@@ -80,7 +80,7 @@ router.get('/diagnostico', (req, res) => {
         totalPadroes: total,
         amostra: amostra || [],
         mensagem: total === 0 ?
-        '⚠️ Tabela existe mas está VAZIA! Rode: cd server && node migrate-padrao-exame-mysql.js' :
+        '⚠️ Tabela existe mas está VAZIA! Rode: cd server && node scripts/legado/migrate-padrao-exame-mysql.js' :
         `✅ ${total} padrões encontrados`,
         dica: total === 0 ?
         'Verifique se o script de migração aponta para o mesmo arquivo: ' + require('path').basename(dbPath) :

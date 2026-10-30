@@ -18,13 +18,7 @@ import {
 '../components/prontuario/ProntuarioTabs';
 import { ProntuarioSidebar } from '../components/prontuario/ProntuarioSidebar';
 import { resolverEspecialidade } from '../utils/especialidadeHelper';
-import { paraHtmlImpressao } from '../utils/htmlTexto';
 import { definirContextoProntuario } from '../utils/ditadoProntuario';
-import {
-  cssDocumentoPaginado,
-  cssQuebrasPagina,
-  faixaIdentificacao } from
-'../utils/documentoImpressao';
 import { AnamneseEtapa } from '../components/prontuario/etapas/AnamneseEtapa';
 import { ResumoEtapa } from '../components/prontuario/etapas/ResumoEtapa';
 import { ResumoAtendimentoEtapa } from '../components/prontuario/etapas/ResumoAtendimentoEtapa';
@@ -56,19 +50,10 @@ import {
 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 import { Consulta, Clinica } from '../types';
-import {
-  gerarLinkSalaVideo,
-  montarMensagemConsultaOnline,
-  formatarDataConsultaSimples } from
-'../utils/videoConsulta';
-// Canal alternativo ao WhatsApp para entregar o link da sala ao paciente.
-import { montarMensagemConsultaOnlineSms } from '../utils/videoConsultaSms';
-import { enviarSmsApi } from '../utils/smsApi';
-import {
-  enviarWhatsappMetaApi,
-  metaDisponivelApi } from
-'../utils/whatsappMetaApi';
+import { gerarLinkSalaVideo } from '../utils/videoConsulta';
 import { MemedPrescricaoModal, type PrescricaoMemedInfo } from '../components/MemedPrescricaoModal';
+import { imprimirProntuario } from '../components/prontuario/impressaoProntuario';
+import { reenviarConviteConsultaOnline } from '../components/prontuario/conviteConsultaOnline';
 import { useRascunhoProntuario, conteudoVazio } from '../hooks/useRascunhoProntuario';
 import { registrarGuardaSaida } from '../utils/guardaSaida';
 import { abasVisiveis } from '../components/prontuario/ProntuarioTabs';
@@ -561,6 +546,22 @@ export function ProntuarioAtendimentoPage({
   );
   // ⭐ Carrega config e profissional Memed
   // Tenta: 1) profissional da consulta, 2) usuário logado
+  // Depende só do id RESOLVIDO: antes rodava duas vezes (consulta.profissionalId
+  // e depois profissionalDaConsulta.id, o mesmo profissional).
+  const profIdMemed = consulta?.profissionalId || profissionalDaConsulta?.id || '';
+  // Config da Memed: uma vez ao abrir (sempre do servidor — sem cópia local:
+  // antes a cópia guardava as chaves da Memed no navegador e nunca atualizava).
+  useEffect(() => {
+    try {
+      localStorage.removeItem('memed_config');
+    } catch {}
+    fetch(`${API_BASE_URL}/api/configuracoes-globais/memed_config`).
+    then((res) => res.ok ? res.json() : null).
+    then((data) => {
+      if (data?.valor) setMemedConfig(data.valor);
+    }).
+    catch(() => {});
+  }, []);
   useEffect(() => {
     const carregarMemedProfissional = async (userId: string) => {
       try {
@@ -602,21 +603,10 @@ export function ProntuarioAtendimentoPage({
             '⚠️ [Memed] Profissional da consulta não tem Memed configurado. Não usa fallback do logado.'
           );
         }
-        // Carrega config Memed — sempre do servidor (sem cópia local: antes a
-        // cópia guardava as chaves da Memed no navegador e nunca atualizava).
-        try {
-          localStorage.removeItem('memed_config');
-        } catch {}
-        fetch(`${API_BASE_URL}/api/configuracoes-globais/memed_config`).
-        then((res) => res.ok ? res.json() : null).
-        then((data) => {
-          if (data?.valor) setMemedConfig(data.valor);
-        }).
-        catch(() => {});
       } catch {}
     };
     init();
-  }, [consulta?.profissionalId, profissionalDaConsulta?.id]);
+  }, [profIdMemed]);
   const handleAbrirMemed = useCallback(() => {
     console.log('🔵 [Memed] handleAbrirMemed chamado');
     console.log('🔵 [Memed] memedConfig:', JSON.stringify(memedConfig));
@@ -1692,12 +1682,24 @@ export function ProntuarioAtendimentoPage({
   toastSuccess]
   );
   // ⭐ Carrega prontuário e dados clínicos das tabelas separadas
+  // Guarda contra carga DUPLICADA: o objeto `consulta` muda de identidade
+  // enquanto a carga ainda está em andamento (a fila/App atualiza a lista),
+  // o efeito rodava de novo e buscava tudo duas vezes.
+  const carregandoDadosRef = useRef<string | null>(null);
   useEffect(() => {
     if (dadosCarregados) return;
     const carregarDados = async () => {
       const idPaciente = consulta?.pacienteId || pacienteId;
       if (!idPaciente || !clinicaId) return;
+      const chaveCarga = `${clinicaId}:${idPaciente}:${consulta?.id || consultaIdProp || ''}:${consultaIdSelecionada}`;
+      if (carregandoDadosRef.current === chaveCarga) return;
+      carregandoDadosRef.current = chaveCarga;
       try {
+        // ⭐ As 9 buscas abaixo são independentes: rodam EM PARALELO.
+        // Antes eram feitas uma depois da outra (~18 idas ao servidor em
+        // fila); com a latência de produção a tela demorava segundos para
+        // mostrar os dados. Cada seção mantém o próprio try/catch.
+        const secao1 = (async () => {
         // 1. Busca prontuário
         try {
           // (declarada fora do if: o registro LGPD de acesso, mais abaixo, usa
@@ -2040,18 +2042,20 @@ export function ProntuarioAtendimentoPage({
                   }
                 }
               }
-              // Preenche dados gerais como fallback para anamnese
-              if (!anamneseData) {
-                setAnamneseData({
-                  queixaPrincipal: '',
-                  historiaQueixa: '',
-                  historicoDoencas: pront.doencasCronicas || '',
-                  alergias: pront.alergias || '',
-                  medicamentosEmUso: pront.medicamentosEmUso || '',
-                  historicoFamiliar: pront.historicoFamiliar || '',
-                  habitosVida: ''
-                });
+              // Preenche dados gerais como fallback para anamnese.
+              // Atualização FUNCIONAL: as buscas agora rodam em paralelo e a
+              // anamnese real (seção 2) pode chegar antes — não sobrescreve.
+              setAnamneseData((atual) =>
+              atual ?? {
+                queixaPrincipal: '',
+                historiaQueixa: '',
+                historicoDoencas: pront.doencasCronicas || '',
+                alergias: pront.alergias || '',
+                medicamentosEmUso: pront.medicamentosEmUso || '',
+                historicoFamiliar: pront.historicoFamiliar || '',
+                habitosVida: ''
               }
+              );
             }
           }
           // ⭐ LGPD: Registra acesso ao prontuário
@@ -2072,6 +2076,8 @@ export function ProntuarioAtendimentoPage({
           console.error('Erro prontuário:', err);
           setProntuarioJaCarregado(true);
         }
+        })();
+        const secao2 = (async () => {
         // 2. Busca anamneses
         // ⭐ Estratégia segura: tenta pela consultaId do atendimento; se NÃO houver
         // registro próprio E o usuário NÃO retomou explicitamente um atendimento
@@ -2125,6 +2131,8 @@ export function ProntuarioAtendimentoPage({
         } catch (err) {
           console.error('Erro anamneses:', err);
         }
+        })();
+        const secao3 = (async () => {
         // 3. Busca evoluções
         try {
           let carregou = false;
@@ -2165,6 +2173,8 @@ export function ProntuarioAtendimentoPage({
         } catch (err) {
           console.error('Erro evoluções:', err);
         }
+        })();
+        const secao4 = (async () => {
         // 4. Busca exames físicos
         const aplicaExameFisico = (e: any, isFallback: boolean = false) => {
           if (!isFallback) {
@@ -2213,6 +2223,8 @@ export function ProntuarioAtendimentoPage({
         } catch (err) {
           console.error('Erro exames físicos:', err);
         }
+        })();
+        const secao5 = (async () => {
         // 5. Busca diagnósticos
         const aplicaDiagnostico = (d: any, isFallback: boolean = false) => {
           if (!isFallback) {
@@ -2260,6 +2272,8 @@ export function ProntuarioAtendimentoPage({
         } catch (err) {
           console.error('Erro diagnósticos:', err);
         }
+        })();
+        const secao6 = (async () => {
         // 6. Busca exames solicitados
         let exameSolicitadoCarregado = false;
         let examesSolicitadosIdLocal: string | null = null;
@@ -2414,6 +2428,8 @@ export function ProntuarioAtendimentoPage({
         } catch (err) {
           console.error('Erro exames solicitados:', err);
         }
+        })();
+        const secao7 = (async () => {
         // 7. Busca prescrições
         try {
           let prescricaoCarregada = false;
@@ -2507,6 +2523,8 @@ export function ProntuarioAtendimentoPage({
         } catch (err) {
           console.error('Erro prescrições:', err);
         }
+        })();
+        const secao8 = (async () => {
         // 8. Busca relatórios
         try {
           let relatorioCarregado = false;
@@ -2587,6 +2605,8 @@ export function ProntuarioAtendimentoPage({
         } catch (err) {
           console.error('Erro relatórios:', err);
         }
+        })();
+        const secao9 = (async () => {
         // 9. Busca atestados
         try {
           let atestadoCarregado = false;
@@ -2684,10 +2704,14 @@ export function ProntuarioAtendimentoPage({
         } catch (err) {
           console.error('Erro atestados:', err);
         }
+        })();
+        await Promise.all([secao1, secao2, secao3, secao4, secao5, secao6, secao7, secao8, secao9]);
         setDadosCarregados(true);
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
         setDadosCarregados(true);
+      } finally {
+        if (carregandoDadosRef.current === chaveCarga) carregandoDadosRef.current = null;
       }
     };
     carregarDados();
@@ -2866,201 +2890,19 @@ export function ProntuarioAtendimentoPage({
   // Usado quando o paciente já não tem mais o link e o profissional opta por
   // reenviá-lo antes de reiniciar a consulta. Reutiliza o mesmo caminho de
   // mensagem/WhatsApp usado ao iniciar o atendimento.
-  const reenviarConviteWhatsApp = useCallback(async (): Promise<boolean> => {
-    const idConsulta = consultaIdReal || consulta?.id || '';
-    // Link do PACIENTE (attendee) — é o que ele acessa pelo WhatsApp.
-    const linkPaciente = gerarLinkSalaVideo({
-      clinicaId: clinicaId || 'default',
-      consultaId: idConsulta,
-      linkExistente: consulta?.linkVideo,
-      role: 'attendee',
-      nome: paciente?.nome || consulta?.pacienteNome || ''
-    });
-    // Telefone do paciente: usa o que já temos em memória, senão busca na API.
-    let telefone =
-    (consulta as any)?.pacienteTelefone || paciente?.telefone || '';
-    if (!telefone && paciente?.id) {
-      try {
-        const resp = await fetch(
-          `${API_BASE_URL}/api/pacientes/${paciente.id}?clinicaId=${clinicaId}`
-        );
-        if (resp.ok) {
-          const data = await resp.json();
-          telefone = data.telefone || '';
-        }
-      } catch (err) {
-        console.error('Erro ao buscar telefone do paciente:', err);
-      }
-    }
-    if (!telefone) {
-      toastError(
-        'Sem telefone',
-        'Paciente sem telefone cadastrado — não foi possível reenviar o convite.'
-      );
-      return false;
-    }
-    let clinicaNome = '';
-    try {
-      const sessao = localStorage.getItem('sessao');
-      if (sessao) clinicaNome = JSON.parse(sessao)?.clinicaAtual?.nome || '';
-    } catch {
-
-      /* ignore */}
-    const mensagem = montarMensagemConsultaOnline({
-      pacienteNome: paciente?.nome || consulta?.pacienteNome || '',
-      profissional: profissionalAtivoNomeRef.current || consulta?.profissional,
-      data: consulta?.data || undefined,
-      horario: consulta?.horario,
-      link: linkPaciente,
-      clinicaNome
-    });
-    const telefoneFormatado = telefone.replace(/\D/g, '');
-    const numeroCompleto = telefoneFormatado.startsWith('55') ?
-    telefoneFormatado :
-    `55${telefoneFormatado}`;
-    // ⭐ Alternativa por SMS: sem o link o paciente NÃO entra na consulta, então
-    // quando o WhatsApp da clínica não está disponível tentamos o SMS antes de
-    // empurrar o profissional para o WhatsApp Web.
-    const reenviarPorSms = async (motivo: string): Promise<boolean> => {
-      // ⭐ Envio centralizado (utils/smsApi): tenta o POST e, se o proxy barrar a
-      // requisição antes de chegar ao servidor, repete pela rota alternativa.
-      const envio = await enviarSmsApi({
-        clinicaId,
-        telefone: numeroCompleto,
-        mensagem: montarMensagemConsultaOnlineSms({
-          pacienteNome: paciente?.nome || consulta?.pacienteNome || '',
-          clinicaNome,
-          data: consulta?.data || undefined,
-          horario: consulta?.horario,
-          link: linkPaciente
-        }),
-        pacienteId: paciente?.id,
-        pacienteNome: paciente?.nome || consulta?.pacienteNome,
-        consultaId: idConsulta
-      });
-      if (envio.success) {
-        toastSuccess(
-          'Convite enviado por SMS',
-          `${motivo} O link da sala foi enviado ao paciente por SMS.`
-        );
-        return true;
-      }
-      console.error('Erro ao reenviar convite por SMS:', envio.error);
-      return false;
-    };
-    // ⭐ CANAL META (WhatsApp oficial): quando a clínica configurou a Cloud API,
-    // o convite vai pelo template aprovado — entregue mesmo fora da janela de 24h.
-    const reenviarPorMeta = async (): Promise<boolean> => {
-      const disponibilidade = await metaDisponivelApi(clinicaId);
-      const template = disponibilidade.templates?.consultaOnline;
-      if (!disponibilidade.disponivel || !template) return false;
-      const envio = await enviarWhatsappMetaApi({
-        clinicaId,
-        telefone: numeroCompleto,
-        template: {
-          name: template.name,
-          language: template.language,
-          params: [
-          paciente?.nome || consulta?.pacienteNome || 'Paciente',
-          formatarDataConsultaSimples(consulta?.data || undefined) || '',
-          consulta?.horario || ''],
-
-          urlParam: linkPaciente
-        },
-        pacienteId: paciente?.id,
-        pacienteNome: paciente?.nome || consulta?.pacienteNome,
-        consultaId: idConsulta
-      });
-      if (envio.success) {
-        toastSuccess(
-          'Convite enviado pelo WhatsApp oficial',
-          'O link da sala foi enviado ao paciente.'
-        );
-        return true;
-      }
-      console.error('Erro ao reenviar convite pela Meta:', envio.error);
-      return false;
-    };
-    // Alternativa completa: Meta (oficial) e, se indisponível, SMS.
-    const reenviarAlternativo = async (motivo: string): Promise<boolean> => {
-      if (await reenviarPorMeta()) return true;
-      return reenviarPorSms(motivo);
-    };
-    // Se a Meta é o canal preferencial da clínica, vem ANTES do WAHA.
-    const metaPreferencial = await metaDisponivelApi(clinicaId);
-    if (metaPreferencial.disponivel && metaPreferencial.preferencial) {
-      if (await reenviarPorMeta()) return;
-    }
-
-    // Config do WhatsApp da clínica.
-    let whatsappConfig: {
-      serverUrl?: string;
-      sessionName?: string;
-    } | null = null;
-    try {
-      const configResponse = await fetch(
-        `${API_BASE_URL}/api/whatsapp/config?clinicaId=${clinicaId}`
-      );
-      if (configResponse.ok) whatsappConfig = await configResponse.json();
-    } catch (err) {
-      console.error('Erro ao buscar config do WhatsApp:', err);
-    }
-    // Sem WhatsApp da clínica → cai no WhatsApp Web como último recurso.
-    if (!whatsappConfig?.serverUrl || !whatsappConfig?.sessionName) {
-      if (await reenviarAlternativo('WhatsApp da clínica não conectado.'))
-      return true;
-      window.open(
-        `https://wa.me/${numeroCompleto}?text=${encodeURIComponent(mensagem)}`,
-        '_blank'
-      );
-      toastWarning(
-        'WhatsApp da clínica não conectado',
-        'O SMS também não está disponível — abrimos o WhatsApp Web para você reenviar o link manualmente.'
-      );
-      return true;
-    }
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/whatsapp/send-message`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            serverUrl: whatsappConfig.serverUrl,
-            sessionName: whatsappConfig.sessionName,
-            number: numeroCompleto,
-            message: mensagem,
-            clinicaId,
-            pacienteId: paciente?.id,
-            pacienteNome: paciente?.nome || consulta?.pacienteNome
-          })
-        }
-      );
-      if (response.ok) {
-        toastSuccess(
-          'Convite reenviado',
-          `O link da sala foi reenviado ao paciente pelo WhatsApp da clínica.`
-        );
-        return true;
-      }
-      if (await reenviarAlternativo('Falha no envio pelo WhatsApp.')) return true;
-      toastError(
-        'Falha ao reenviar',
-        'Não foi possível reenviar o link pelo WhatsApp nem por SMS.'
-      );
-      return false;
-    } catch (err) {
-      console.error('Erro ao reenviar convite:', err);
-      if (await reenviarAlternativo('Falha no envio pelo WhatsApp.')) return true;
-      toastError(
-        'Falha ao reenviar',
-        'Não foi possível reenviar o link pelo WhatsApp nem por SMS.'
-      );
-      return false;
-    }
-  }, [
+  const reenviarConviteWhatsApp = useCallback(
+    (): Promise<boolean> =>
+    reenviarConviteConsultaOnline({
+      clinicaId,
+      consultaIdReal,
+      consulta,
+      paciente,
+      toastSuccess,
+      toastError,
+      toastWarning,
+      nomeProfissional: profissionalAtivoNomeRef.current
+    }),
+  [
   clinicaId,
   consultaIdReal,
   consulta,
@@ -4468,391 +4310,23 @@ export function ProntuarioAtendimentoPage({
     toastError]
 
   );
-  // ⭐ Imprimir prontuário
+  // ⭐ Imprimir prontuário (montagem do documento em components/prontuario/impressaoProntuario.ts)
   const handleImprimirProntuario = useCallback(() => {
-    if (!paciente) return;
-    const secoes: {
-      titulo: string;
-      conteudo: string;
-    }[] = [];
-    // Profissional info
-    const profissionalNome =
-    profissionalDaConsulta?.nome ||
-    ultimoProfissional?.nome ||
-    consulta?.profissional ||
-    '';
-    const profissionalCrm =
-    profissionalDaConsulta?.crm ||
-    ultimoProfissional?.crm ||
-    (consulta as any)?.profissionalCrm ||
-    '';
-    const profissionalUf =
-    profissionalDaConsulta?.uf ||
-    ultimoProfissional?.uf ||
-    (consulta as any)?.profissionalUf ||
-    '';
-    const rawEspecialidade = profissionalDaConsulta?.especialidade || '';
-    const profissionalEspecialidade =
-    rawEspecialidade &&
-    rawEspecialidade !== '[]' &&
-    rawEspecialidade !== 'null' ?
-    rawEspecialidade :
-    '';
-    const profissionalTitulo =
-    (profissionalDaConsulta as any)?.titulo ||
-    (ultimoProfissional as any)?.titulo ||
-    consulta?.profissionalTitulo ||
-    '';
-    const profissionalCabecalho =
-    (profissionalDaConsulta as any)?.cabecalhoRelatorio ||
-    (ultimoProfissional as any)?.cabecalhoRelatorio ||
-    '';
-    const profissionalTipo =
-    profissionalDaConsulta?.tipo ||
-    profissionaisDisponiveis.find((p) => p.id === profissionalDaConsulta?.id)?.
-    tipo ||
-    consulta?.profissionalTipo ||
-    '';
-    const prefixoConselho = profissionalTipo === 'dentista' ? 'CRO' : 'CRM';
-    let profissionalRqes: any[] = [];
-    try {
-      const rqesRaw =
-      (profissionalDaConsulta as any)?.rqes ||
-      (ultimoProfissional as any)?.rqes;
-      if (typeof rqesRaw === 'string') profissionalRqes = JSON.parse(rqesRaw);else
-      if (Array.isArray(rqesRaw)) profissionalRqes = rqesRaw;
-    } catch {
-
-      /* ignore */}
-    // Clinica info
-    const sessaoStr = localStorage.getItem('sessao');
-    let clinicaNome = '',
-      clinicaEndereco = '',
-      clinicaTelefone = '',
-      clinicaEmail = '';
-    let operadoraLogoUrl = '',
-      clinicaLogoUrl = '';
-    if (sessaoStr) {
-      try {
-        const sessao = JSON.parse(sessaoStr);
-        const cl = sessao.clinicaAtual || {};
-        clinicaNome = cl.nome || cl.nomeFantasia || '';
-        clinicaEndereco = [cl.endereco, cl.numero, cl.bairro, cl.cidade, cl.uf].
-        filter(Boolean).
-        join(', ');
-        clinicaTelefone = cl.telefone || '';
-        clinicaEmail = cl.email || '';
-        clinicaLogoUrl = cl.logoUrl || '';
-        operadoraLogoUrl = sessao.operadoraSelecionada?.logoUrl || '';
-      } catch {
-
-        /* ignore */}
-    }
-    // Idade
-    let idade: number | null = null;
-    if (paciente.dataNascimento) {
-      const nascimento = new Date(paciente.dataNascimento);
-      const hoje = new Date();
-      idade = hoje.getFullYear() - nascimento.getFullYear();
-      const m = hoje.getMonth() - nascimento.getMonth();
-      if (m < 0 || m === 0 && hoje.getDate() < nascimento.getDate()) idade--;
-    }
-    // Seções
-    if (anamneseData) {
-      const parts: string[] = [];
-      if (anamneseData.queixaPrincipal)
-      parts.push(
-        '<strong>Queixa Principal:</strong> ' + anamneseData.queixaPrincipal
-      );
-      if (anamneseData.historiaQueixa)
-      parts.push('<strong>História:</strong> ' + anamneseData.historiaQueixa);
-      if (anamneseData.alergias)
-      parts.push('<strong>Alergias:</strong> ' + anamneseData.alergias);
-      if (anamneseData.medicamentosEmUso)
-      parts.push(
-        '<strong>Medicamentos:</strong> ' + anamneseData.medicamentosEmUso
-      );
-      if (parts.length > 0)
-      secoes.push({
-        titulo: 'Anamnese',
-        conteudo: parts.join('<br/>')
-      });
-    }
-    if (exameFisicoData) {
-      const parts: string[] = [];
-      if (exameFisicoData.pressaoArterial)
-      parts.push('PA: ' + exameFisicoData.pressaoArterial);
-      if (exameFisicoData.peso)
-      parts.push('Peso: ' + exameFisicoData.peso + 'kg');
-      if (exameFisicoData.altura)
-      parts.push('Altura: ' + exameFisicoData.altura + 'cm');
-      if (exameFisicoData.temperatura)
-      parts.push('Temp: ' + exameFisicoData.temperatura + '°C');
-      if (exameFisicoData.observacoesGerais)
-      parts.push(exameFisicoData.observacoesGerais);
-      if (parts.length > 0)
-      secoes.push({
-        titulo: 'Exame Físico',
-        conteudo: parts.join(' | ')
-      });
-    }
-    if (diagnosticoData) {
-      let conteudo = '';
-      if (diagnosticoData.diagnosticoPrincipal) {
-        conteudo +=
-        diagnosticoData.diagnosticoPrincipal.codigo +
-        ' - ' +
-        diagnosticoData.diagnosticoPrincipal.descricao;
-      }
-      if (diagnosticoData.observacoes)
-      conteudo += '<br/>' + diagnosticoData.observacoes;
-      if (conteudo)
-      secoes.push({
-        titulo: 'Diagnóstico',
-        conteudo
-      });
-    }
-    if (evolucaoData?.evolucaoAtual) {
-      secoes.push({
-        titulo: 'Evolução',
-        // A evolução vem do editor: preserva a formatação; texto puro (registros
-        // antigos) continua com as quebras de linha convertidas.
-        conteudo: paraHtmlImpressao(evolucaoData.evolucaoAtual)
-      });
-    }
-    if (examesData?.descricao || examesData?.pedido) {
-      const parts: string[] = [];
-      if (examesData.descricao) parts.push(examesData.descricao);
-      // O pedido pode conter formatação do editor — preserva na impressão.
-      if (examesData.pedido) parts.push(paraHtmlImpressao(examesData.pedido));
-      secoes.push({
-        titulo: 'Exames Solicitados',
-        conteudo: parts.join('<br/>')
-      });
-    }
-    if (prescricoesData?.prescricoes) {
-      let conteudo = prescricoesData.prescricoes;
-      try {
-        const parsed = JSON.parse(conteudo);
-        if (parsed.generico) conteudo = parsed.generico;
-        if (parsed.medicamentos?.length > 0) {
-          conteudo = parsed.medicamentos.
-          map((m: any) => `${m.nome} — ${m.posologia || ''}`).
-          join('<br/>');
-          if (parsed.generico) conteudo = parsed.generico + '<br/>' + conteudo;
-        }
-      } catch {
-
-        /* use raw */}
-      conteudo = conteudo.
-      replace(/\\r\\n/g, '\n').
-      replace(/\\n/g, '\n').
-      replace(/\n/g, '<br/>').
-      trim();
-      if (conteudo)
-      secoes.push({
-        titulo: 'Prescrições',
-        conteudo
-      });
-    }
-    const dataAtual = new Date().toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-    const dataHoraAtual = new Date().toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    const logoUrl = operadoraLogoUrl || clinicaLogoUrl || '';
-    const logoHtml = logoUrl ?
-    '<img src="' +
-    logoUrl +
-    '" alt="Logo" style="max-height:80px;max-width:120px;object-fit:contain;" />' :
-    '';
-    const idadeStr = idade !== null ? ', ' + idade + ' anos' : '';
-    const profissaoStr = (paciente as any).profissao ?
-    ' | ' + (paciente as any).profissao :
-    '';
-    const convenioStr =
-    (paciente as any).convenio || (paciente as any).planoSaudeNome ?
-    ' | Convênio: ' + (
-    (paciente as any).planoSaudeNome || (paciente as any).convenio) :
-    '';
-    if (clinicaId) {
-      const idPaciente = consulta?.pacienteId || pacienteId || '';
-      registrarAuditoria({
-        clinicaId,
-        acao: 'IMPRESSAO_PRONTUARIO',
-        entidade: 'prontuario',
-        entidadeId: prontuarioId || '',
-        pacienteId: idPaciente,
-        pacienteNome: paciente?.nome || '',
-        detalhes: `Imprimiu prontuário com ${secoes.length} seção(ões): ${secoes.map((s) => s.titulo).join(', ')}`
-      });
-    }
-    const tituloDisplay = profissionalTitulo ? profissionalTitulo + ' ' : '';
-    const profNomeDisplay = profissionalNome ?
-    tituloDisplay + profissionalNome :
-    clinicaNome || 'Prontuário Médico';
-    const cssStyles = `
-      @page { size: A4; margin: 0; }
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; font-size: 11px; }
-      ${cssDocumentoPaginado()}
-      ${cssQuebrasPagina('.body')}
-      .header { background: #eef4fb; border-bottom: 2px solid #3b82f6; padding: 18px 28px 14px; display: flex; align-items: center; gap: 18px; }
-      .header-logo { flex-shrink: 0; width: 80px; display: flex; align-items: center; justify-content: center; }
-      .header-logo img { max-height: 70px; max-width: 80px; object-fit: contain; border-radius: 8px; }
-      .header-center { flex: 1; text-align: center; }
-      .header-center h1 { font-size: 18px; font-weight: bold; color: #1e3a5f; letter-spacing: 0.5px; margin-bottom: 3px; text-transform: uppercase; }
-      .header-center .clinica-nome { font-size: 11px; color: #475569; margin-bottom: 2px; }
-      .header-center .clinica-endereco { font-size: 9px; color: #64748b; margin-bottom: 1px; }
-      .body { padding: 16px 32px 22px; }
-      .data-impressao { font-size: 10px; color: #64748b; text-align: right; margin-bottom: 12px; }
-      .prontuario-title { font-size: 18px; font-weight: bold; color: #1e293b; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
-      .prontuario-title-line { border-bottom: 2px solid #1e3a5f; width: 180px; margin: 0 auto 16px; }
-      .paciente-info { font-size: 11px; color: #334155; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; line-height: 1.6; }
-      .paciente-info strong { color: #0f172a; font-size: 12px; }
-      /* Uma seção pode ser MAIOR que uma folha (evolução longa, por exemplo):
-         com "page-break-inside: avoid" o excesso era simplesmente cortado.
-         A seção pode quebrar, mas nunca separando o título do conteúdo. */
-      .secao { margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; page-break-inside: auto; }
-      .secao-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; page-break-after: avoid; page-break-inside: avoid; }
-      .secao-numero { width: 24px; height: 24px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0; }
-      .secao-titulo { font-size: 13px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.3px; }
-      .secao-data { font-size: 9px; color: #94a3b8; margin-left: auto; font-style: italic; }
-      .secao-conteudo { font-size: 11px; color: #334155; line-height: 1.7; padding-left: 34px; }
-      .assinatura-box { margin-top: 40px; text-align: center; page-break-inside: avoid; }
-      .assinatura-linha { border-top: 1px solid #1e3a5f; width: 300px; margin: 0 auto 8px; }
-      .assinatura-nome { font-size: 13px; font-weight: bold; color: #1e293b; text-transform: uppercase; }
-      .assinatura-crm { font-size: 11px; color: #475569; margin-top: 2px; }
-      .assinatura-esp { font-size: 10px; color: #64748b; }
-      .footer { background: #eef4fb; border-top: 2px solid #3b82f6; padding: 12px 28px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px; color: #475569; line-height: 1.5; }
-      .footer-left { text-align: left; }
-      .footer-left .clinica-nome { font-size: 12px; font-weight: bold; color: #1e3a5f; margin-bottom: 2px; }
-      .footer-left .clinica-info { font-size: 8px; color: #64748b; }
-      .footer-right { text-align: right; font-size: 9px; color: #64748b; font-style: italic; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .doc { margin: 0; } }
-    `;
-    const secoesHtml = secoes.
-    map(
-      (s, i) =>
-      '<div class="secao"><div class="secao-header"><div class="secao-numero">' + (
-      i + 1) +
-      '</div><div class="secao-titulo">' +
-      s.titulo +
-      '</div><div class="secao-data">' +
-      dataHoraAtual +
-      '</div></div><div class="secao-conteudo">' +
-      s.conteudo +
-      '</div></div>'
-    ).
-    join('');
-    const assinaturaHtml =
-    '<div class="assinatura-box"><div class="assinatura-linha"></div><div class="assinatura-nome">' + (
-    profissionalNome ? tituloDisplay + profissionalNome : '') +
-    '</div>' + (
-    profissionalCrm ?
-    '<div class="assinatura-crm">' +
-    prefixoConselho +
-    ' ' +
-    profissionalCrm + (
-    profissionalUf ? '/' + profissionalUf : '') +
-    '</div>' :
-    '') + (
-    profissionalEspecialidade ?
-    '<div class="assinatura-esp">' + profissionalEspecialidade + '</div>' :
-    '') + (
-    profissionalRqes.length > 0 ?
-    profissionalRqes.
-    map(
-      (r: any) =>
-      '<div class="assinatura-esp">' +
-      r.especialidade +
-      ' — RQE ' +
-      r.rqe +
-      '</div>'
-    ).
-    join('') :
-    '') +
-    '</div>';
-    const headerClinicaInfo = [
-    clinicaEndereco || '',
-    [
-    clinicaTelefone ? 'Tel: ' + clinicaTelefone : '',
-    clinicaEmail ? 'Email: ' + clinicaEmail : ''].
-
-    filter(Boolean).
-    join(' | ')].
-
-    filter(Boolean).
-    join('<br/>');
-    const footerLeftHtml =
-    '<div class="footer-left"><div class="clinica-nome">' + (
-    clinicaNome || '') +
-    '</div><div class="clinica-info">' +
-    [
-    clinicaEndereco || '',
-    clinicaTelefone ? 'Telefone: ' + clinicaTelefone : '',
-    clinicaEmail ? 'Email: ' + clinicaEmail : ''].
-
-    filter(Boolean).
-    join('<br/>') +
-    '</div></div>';
-    const htmlContent =
-    '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Prontuário - ' +
-    paciente.nome +
-    '</title>' +
-    '<sty' +
-    'le>' +
-    cssStyles +
-    '</sty' +
-    'le>' +
-    // Documento de várias páginas: cabeçalho (thead) e rodapé (tfoot) são
-    // repetidos pelo navegador em TODAS as folhas do prontuário.
-    '</head><body><table class="doc"><thead><tr><td><div class="header">' + (
-    logoHtml ? '<div class="header-logo">' + logoHtml + '</div>' : '') +
-    '<div class="header-center"><h1>' +
-    profNomeDisplay +
-    '</h1>' + (
-    clinicaNome ?
-    '<div class="clinica-nome">' + clinicaNome + '</div>' :
-    '') + (
-    profissionalCabecalho ?
-    '<div class="clinica-endereco">' +
-    profissionalCabecalho.replace(/\n/g, '<br/>') +
-    '</div>' :
-    headerClinicaInfo ?
-    '<div class="clinica-endereco">' + headerClinicaInfo + '</div>' :
-    '') +
-    '</div></div>' +
-    faixaIdentificacao(paciente.nome, 'Prontuário', dataAtual) +
-    '</td></tr></thead>' +
-    '<tfoot><tr><td><div class="footer">' +
-    footerLeftHtml +
-    '<div class="footer-right">Documento emitido eletronicamente</div>' +
-    '</div></td></tr></tfoot>' +
-    '<tbody><tr><td><div class="body"><div class="data-impressao">Data: ' +
-    dataAtual +
-    '</div><div class="prontuario-title">Prontuário</div><div class="prontuario-title-line"></div><div class="paciente-info"><strong>' +
-    paciente.nome.toUpperCase() +
-    '</strong>' +
-    idadeStr +
-    profissaoStr +
-    convenioStr +
-    '</div>' +
-    secoesHtml +
-    assinaturaHtml +
-    '</div></td></tr></tbody></table></body></html>';
-    import('../utils/pdfGenerator').then(({ previewDocumentoPDF }) => {
-      const nomeArquivo = `Prontuario_${paciente.nome.replace(/\s+/g, '_')}_${dataAtual.replace(/\//g, '-')}.pdf`;
-      previewDocumentoPDF(htmlContent, {
-        fileName: nomeArquivo
-      });
+    imprimirProntuario({
+      paciente,
+      consulta,
+      pacienteId,
+      anamneseData,
+      exameFisicoData,
+      examesData,
+      diagnosticoData,
+      evolucaoData,
+      prescricoesData,
+      profissionalDaConsulta,
+      ultimoProfissional,
+      profissionaisDisponiveis,
+      clinicaId,
+      prontuarioId,
     });
   }, [
   paciente,

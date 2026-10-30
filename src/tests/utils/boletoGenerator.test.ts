@@ -262,3 +262,12 @@ describe('gerarHTMLBoleto', () => {
     expect(html).toContain('1234-5');
   });
 });
+describe('fator de vencimento (reinício FEBRABAN em 22/02/2025)', () => {
+  it('21/02/2025 ainda é 9999 e 22/02/2025 volta para 1000', () => {
+    expect(gerarCodigoBarras(10, '2025-02-21').substring(5, 9)).toBe('9999');
+    expect(gerarCodigoBarras(10, '2025-02-22').substring(5, 9)).toBe('1000');
+  });
+  it('mantém 44 dígitos para vencimentos de 2026 em diante', () => {
+    expect(gerarCodigoBarras(10, '2026-10-30')).toHaveLength(44);
+  });
+});

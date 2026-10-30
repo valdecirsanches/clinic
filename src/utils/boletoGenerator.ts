@@ -110,7 +110,12 @@ function calcularFatorVencimento(dataVencimento: string): string {
   const dataVenc = new Date(dataVencimento + 'T12:00:00');
   const dataBase = new Date('1997-10-07T12:00:00');
   const diffMs = dataVenc.getTime() - dataBase.getTime();
-  const fator = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  let fator = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  // ⭐ FEBRABAN: o fator chegou a 9999 em 21/02/2025 e RECOMEÇA em 1000 no dia
+  // seguinte (ciclos de 9000 dias). Sem isto, todo vencimento a partir de
+  // 22/02/2025 gerava fator de 5 dígitos e código de barras com 45 dígitos
+  // (inválido no banco).
+  if (fator > 9999) fator = ((fator - 10000) % 9000) + 1000;
   return fator.toString().padStart(4, '0');
 }
 

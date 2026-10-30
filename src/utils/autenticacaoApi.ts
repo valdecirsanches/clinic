@@ -88,6 +88,7 @@ function sessaoExpirou() {
   setTimeout(() => window.location.reload(), 300);
 }
 
+const emAndamento = new Map<string, Promise<Response>>();
 let instalado = false;
 export function instalarAutenticacaoApi() {
   if (instalado || typeof window === 'undefined') return;
@@ -119,7 +120,23 @@ export function instalarAutenticacaoApi() {
     // em outra origem (api.* × app.*) o navegador só o aceita com credentials.
     if (ehRotaDeLogin) novoInit = { ...(novoInit || {}), credentials: 'include' };
 
-    const resposta = await fetchOriginal(novoInput as any, novoInit);
+    // GET idêntico já em andamento (mesma URL e mesmo token): reaproveita a
+    // mesma resposta em vez de ir de novo ao servidor. Várias telas pedem o
+    // mesmo dado ao mesmo tempo ao abrir (paciente, prontuário, Memed).
+    const metodo = (novoInit?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+    const compartilhavel = metodo === 'GET' && !novoInit?.signal && !(input instanceof Request);
+    const chave = compartilhavel ? `${url}|${token || ''}` : '';
+    let promessa: Promise<Response>;
+    if (chave && emAndamento.has(chave)) {
+      promessa = emAndamento.get(chave)!;
+    } else {
+      promessa = fetchOriginal(novoInput as any, novoInit);
+      if (chave) {
+        emAndamento.set(chave, promessa);
+        promessa.finally(() => emAndamento.delete(chave)).catch(() => {});
+      }
+    }
+    const resposta = chave ? (await promessa).clone() : await promessa;
     if (resposta.status === 401 && token && !ehRotaDeLogin) {
       // Só derruba a sessão se o servidor disser que o TOKEN é inválido
       // (outros 401, como "senha atual não confere", seguem normais).
