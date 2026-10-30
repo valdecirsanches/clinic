@@ -93,17 +93,10 @@ export function AssinaturaChip({
   pacienteNome,
   pacienteTelefone,
   clinicaId,
-  atendimentoId
-
-
-
-
-
-
-
-
-
-}: {assinada: boolean;dataAssinatura?: string | null;pacienteId: string;pacienteNome: string;pacienteTelefone: string;clinicaId: string;atendimentoId: string;}) {
+  atendimentoId,
+  campoTelefone,
+  onTelefoneAtualizado
+}: {assinada: boolean;dataAssinatura?: string | null;pacienteId: string;pacienteNome: string;pacienteTelefone: string;clinicaId: string;atendimentoId: string;campoTelefone?: 'telefone' | 'celular';onTelefoneAtualizado?: (telefone: string) => void;}) {
   if (assinada) {
     const quando = dataAssinatura ?
     new Date(dataAssinatura).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) :
@@ -113,7 +106,7 @@ export function AssinaturaChip({
         <ShieldCheckIcon className="w-3.5 h-3.5" /> Assinado
       </span>);
   }
-  const podeSolicitar = Boolean(pacienteId && pacienteNome && pacienteTelefone && clinicaId && atendimentoId);
+  const podeSolicitar = Boolean(pacienteId && pacienteNome && clinicaId && atendimentoId);
   return (
     <span className="flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full pl-2.5 pr-1 py-0.5">
       <PenToolIcon className="w-3.5 h-3.5" />
@@ -125,6 +118,8 @@ export function AssinaturaChip({
         pacienteTelefone={pacienteTelefone}
         clinicaId={clinicaId}
         atendimentoId={atendimentoId}
+        campoTelefone={campoTelefone}
+        onTelefoneAtualizado={onTelefoneAtualizado}
         variant="ghost"
         size="sm"
         label="Solicitar"

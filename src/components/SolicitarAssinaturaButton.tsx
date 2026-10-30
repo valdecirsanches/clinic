@@ -1,11 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
-import { Input } from './ui/Input';
-import { Select } from './ui/Select';
 import { useAssinaturas, TipoAssinatura } from '../hooks/useAssinaturas';
-import { PenToolIcon, SendIcon, Loader2Icon, FileTextIcon, AlertCircleIcon, CheckCircleIcon, CopyIcon, AlertTriangleIcon } from 'lucide-react';
-import { useToast } from '../hooks/useToast';
+import { API_BASE_URL } from '../config/api';
+import { ENV_APP_BASE_URL } from '../config/env';
+import {
+  PenToolIcon,
+  SendIcon,
+  Loader2Icon,
+  AlertTriangleIcon,
+  CheckCircleIcon,
+  CopyIcon,
+  MessageCircleIcon,
+  RefreshCwIcon } from
+'lucide-react';
+import {
+  MODELOS_ASSINATURA,
+  formatarTelefoneBR,
+  nomeClinicaDaSessao,
+  telefoneCompleto } from
+'../data/modelosAssinatura';
+
 interface SolicitarAssinaturaButtonProps {
   pacienteId: string;
   pacienteNome: string;
@@ -17,7 +32,27 @@ interface SolicitarAssinaturaButtonProps {
   className?: string;
   label?: string;
   title?: string;
+  /** Campo do cadastro que guarda o número usado (padrão: telefone). */
+  campoTelefone?: 'telefone' | 'celular';
+  /** Chamado quando o número é atualizado no cadastro do paciente. */
+  onTelefoneAtualizado?: (telefone: string) => void;
 }
+
+type Resultado = {
+  id: string;
+  link: string;
+  enviado: boolean;
+  motivo?: string | null;
+  telefone: string;
+};
+
+const TIPOS: {id: TipoAssinatura;nome: string;}[] = [
+{ id: 'termo_consentimento', nome: 'Termo de Consentimento' },
+{ id: 'autorizacao_procedimento', nome: 'Autorização de Procedimento' },
+{ id: 'contrato', nome: 'Contrato de Serviço' },
+{ id: 'outro', nome: 'Outro documento' }];
+
+
 export function SolicitarAssinaturaButton({
   pacienteId,
   pacienteNome,
@@ -28,303 +63,288 @@ export function SolicitarAssinaturaButton({
   size = 'sm',
   className = '',
   label = 'Solicitar Assinatura',
-  title
+  title,
+  campoTelefone = 'telefone',
+  onTelefoneAtualizado
 }: SolicitarAssinaturaButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [tipo, setTipo] = useState<TipoAssinatura>('termo_consentimento');
-  const [titulo, setTitulo] = useState('Termo de Consentimento');
-  const [descricao, setDescricao] = useState('');
-  const [linkGerado, setLinkGerado] = useState<string | null>(null);
+  const [titulo, setTitulo] = useState('');
+  const [texto, setTexto] = useState('');
+  const textoDoModelo = useRef('');
+  const [telefone, setTelefone] = useState('');
+  const [salvarNoCadastro, setSalvarNoCadastro] = useState(true);
+  const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [reenviando, setReenviando] = useState(false);
   const [copiado, setCopiado] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{
-    type: 'success' | 'warning' | 'error';
-    title: string;
-    message: string;
-  } | null>(null);
-  const {
-    solicitarAssinatura,
-    loading
-  } = useAssinaturas();
-  const {
-    success,
-    error,
-    warning
-  } = useToast();
-  // Log para debug
-  console.log('🔍 [SolicitarAssinaturaButton] Props:', {
-    pacienteId,
-    pacienteNome,
-    pacienteTelefone: pacienteTelefone || '(VAZIO)',
-    clinicaId
-  });
-  const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const novoTipo = e.target.value as TipoAssinatura;
-    setTipo(novoTipo);
-    // Sugere títulos baseados no tipo
-    switch (novoTipo) {
-      case 'termo_consentimento':
-        setTitulo('Termo de Consentimento Livre e Esclarecido');
-        setDescricao('Declaro que fui informado(a) sobre os procedimentos, riscos e benefícios do tratamento proposto.');
-        break;
-      case 'autorizacao_procedimento':
-        setTitulo('Autorização para Procedimento');
-        setDescricao('Autorizo a realização do procedimento descrito no plano de tratamento.');
-        break;
-      case 'contrato':
-        setTitulo('Contrato de Prestação de Serviços');
-        setDescricao('Contrato referente aos serviços odontológicos/médicos a serem prestados.');
-        break;
-      case 'outro':
-        setTitulo('');
-        setDescricao('');
-        break;
-    }
+  const { solicitarAssinatura, loading } = useAssinaturas();
+
+  const aplicarModelo = (t: TipoAssinatura) => {
+    const modelo = MODELOS_ASSINATURA[t];
+    const novo = modelo.texto({ paciente: pacienteNome || 'o(a) paciente', clinica: nomeClinicaDaSessao() });
+    setTipo(t);
+    setTitulo(modelo.titulo);
+    setTexto(novo);
+    textoDoModelo.current = novo;
   };
-  const handleCopiarLink = async () => {
-    if (linkGerado) {
-      try {
-        await navigator.clipboard.writeText(linkGerado);
-        setCopiado(true);
-        setStatusMessage({
-          type: 'success',
-          title: 'Link Copiado!',
-          message: 'O link foi copiado para a área de transferência.'
-        });
-        setTimeout(() => setCopiado(false), 3000);
-      } catch (err) {
-        setStatusMessage({
-          type: 'error',
-          title: 'Erro',
-          message: 'Não foi possível copiar o link.'
-        });
-      }
+
+  // Ao abrir: número do cadastro e o modelo do tipo já preenchidos
+  useEffect(() => {
+    if (!isOpen) return;
+    setTelefone(formatarTelefoneBR(pacienteTelefone || ''));
+    setSalvarNoCadastro(true);
+    setResultado(null);
+    setErro(null);
+    setCopiado(false);
+    aplicarModelo('termo_consentimento');
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const trocarTipo = (t: TipoAssinatura) => {
+    const editado = texto.trim() && texto !== textoDoModelo.current;
+    if (editado && !window.confirm('Substituir o texto que você escreveu pelo modelo deste tipo de documento?')) {
+      setTipo(t);
+      if (MODELOS_ASSINATURA[t].titulo) setTitulo(MODELOS_ASSINATURA[t].titulo);
+      return;
     }
+    aplicarModelo(t);
   };
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatusMessage(null);
-    console.log('📝 [SolicitarAssinaturaButton] handleSubmit chamado');
-    console.log('📝 [SolicitarAssinaturaButton] Dados:', {
-      pacienteId,
-      pacienteNome,
-      pacienteTelefone,
-      clinicaId,
-      tipo,
-      titulo,
-      descricao
-    });
-    if (!clinicaId) {
-      console.log('❌ [SolicitarAssinaturaButton] clinicaId vazio!');
-      setStatusMessage({
-        type: 'error',
-        title: 'Erro',
-        message: 'Clínica não identificada. Recarregue a página.'
+
+  const numeroMudou = telefone.replace(/\D/g, '') !== String(pacienteTelefone || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+  const numeroOk = telefoneCompleto(telefone);
+
+  const atualizarCadastro = async (numero: string) => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicaId, [campoTelefone]: numero })
       });
+      if (r.ok) onTelefoneAtualizado?.(numero);
+    } catch {
+      /* o envio segue; o cadastro pode ser corrigido depois */}
+  };
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro(null);
+    if (telefone && !numeroOk) {
+      setErro('Confira o WhatsApp: informe DDD + número, ex.: (85) 99999-0000.');
       return;
     }
     try {
-      console.log('📝 [SolicitarAssinaturaButton] Chamando solicitarAssinatura...');
-      const result = await solicitarAssinatura({
+      const r = await solicitarAssinatura({
         clinicaId,
         pacienteId,
         pacienteNome,
-        pacienteTelefone: pacienteTelefone || '',
+        pacienteTelefone: telefone ? telefone.replace(/\D/g, '') : '',
         tipo,
         titulo,
-        descricao,
+        descricao: texto,
         atendimentoId
       });
-      console.log('✅ [SolicitarAssinaturaButton] Resultado:', result);
-      // Salva o link gerado para exibir
-      if (result.linkAssinatura) {
-        setLinkGerado(result.linkAssinatura);
-      }
-      if (result.whatsappEnviado) {
-        setStatusMessage({
-          type: 'success',
-          title: 'Solicitação Enviada! ✅',
-          message: `Link de assinatura enviado para ${pacienteNome} via WhatsApp.`
-        });
-        // Fecha o modal após sucesso
-        setTimeout(() => {
-          setIsOpen(false);
-          setLinkGerado(null);
-          setStatusMessage(null);
-        }, 3000);
-      } else {
-        // WhatsApp não configurado ou sem telefone - mostra o link para copiar
-        const motivo = result.whatsappErro || (pacienteTelefone ? 'WhatsApp não está configurado para esta clínica.' : 'Paciente sem telefone cadastrado.');
-        setStatusMessage({
-          type: 'warning',
-          title: 'WhatsApp não enviado',
-          message: `${motivo} O link foi gerado — copie e envie manualmente.`
-        });
-      }
-      // Reset form (mas mantém o link se não foi enviado por WhatsApp)
-      if (result.whatsappEnviado) {
-        setTipo('termo_consentimento');
-        setTitulo('Termo de Consentimento');
-        setDescricao('');
-      }
+      if (telefone && numeroMudou && salvarNoCadastro) await atualizarCadastro(telefone);
+      setResultado({ id: r.id, link: r.linkAssinatura, enviado: !!r.whatsappEnviado, motivo: r.whatsappErro, telefone });
+      if (r.whatsappEnviado) setTimeout(() => setIsOpen(false), 2500);
     } catch (err: any) {
-      console.error('❌ [SolicitarAssinaturaButton] Erro:', err);
-      setStatusMessage({
-        type: 'error',
-        title: 'Erro ao Solicitar',
-        message: err.message || 'Não foi possível criar a solicitação.'
-      });
+      setErro(err.message || 'Não foi possível criar a solicitação.');
     }
   };
-  // Se não tem telefone, ainda permite criar o link (para copiar manualmente)
-  const semTelefone = !pacienteTelefone;
-  return <>
-      <Button variant={variant} size={size} className={className} onClick={() => {
-      setIsOpen(true);
-      setStatusMessage(null);
-    }} title={title || 'Solicitar assinatura digital'}>
-        
+
+  const reenviar = async () => {
+    if (!resultado) return;
+    if (!numeroOk) {
+      setErro('Confira o WhatsApp: informe DDD + número, ex.: (85) 99999-0000.');
+      return;
+    }
+    setErro(null);
+    setReenviando(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/assinaturas/${resultado.id}/reenviar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicaId, telefone: telefone.replace(/\D/g, ''), appUrl: ENV_APP_BASE_URL || window.location.origin })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Não foi possível reenviar.');
+      if (numeroMudou && salvarNoCadastro) await atualizarCadastro(telefone);
+      setResultado({ ...resultado, enviado: !!d.whatsappEnviado, motivo: d.whatsappErro, telefone });
+      if (d.whatsappEnviado) setTimeout(() => setIsOpen(false), 2500);
+    } catch (err: any) {
+      setErro(err.message);
+    } finally {
+      setReenviando(false);
+    }
+  };
+
+  const copiar = async () => {
+    if (!resultado) return;
+    try {
+      await navigator.clipboard.writeText(resultado.link);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      setErro('Não foi possível copiar. Selecione o link e copie manualmente.');
+    }
+  };
+
+  // Plano B: abre o WhatsApp (Web ou app) de quem está usando o sistema,
+  // com a mensagem pronta para o número informado.
+  const linkWhatsAppProprio = resultado && numeroOk ?
+  `https://wa.me/55${telefone.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '')}?text=${encodeURIComponent(
+    `Olá, ${pacienteNome}! Segue o documento "${titulo}" para você ler e assinar: ${resultado.link}`
+  )}` :
+  null;
+
+  const fechar = () => setIsOpen(false);
+
+  return (
+    <>
+      <Button variant={variant} size={size} className={className} onClick={() => setIsOpen(true)} title={title || 'Solicitar assinatura digital'}>
         <PenToolIcon className={`w-4 h-4 ${label ? 'mr-2' : ''}`} />
         {label}
       </Button>
 
-      <Modal isOpen={isOpen} onClose={() => {
-      setIsOpen(false);
-      setLinkGerado(null);
-      setCopiado(false);
-      setStatusMessage(null);
-    }} title="Solicitar Assinatura Digital">
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* ⭐ FIX: Mensagem de status inline (visível dentro do modal) */}
-          {statusMessage && <div className={`p-4 rounded-lg border flex items-start gap-3 ${statusMessage.type === 'success' ? 'bg-green-50 border-green-200' : statusMessage.type === 'warning' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
-            
-              <div className={`p-2 rounded-full flex-shrink-0 ${statusMessage.type === 'success' ? 'bg-green-100' : statusMessage.type === 'warning' ? 'bg-amber-100' : 'bg-red-100'}`}>
-              
-                {statusMessage.type === 'success' ? <CheckCircleIcon className="w-5 h-5 text-green-600" /> : statusMessage.type === 'warning' ? <AlertTriangleIcon className="w-5 h-5 text-amber-600" /> : <AlertCircleIcon className="w-5 h-5 text-red-600" />}
-              </div>
-              <div>
-                <h4 className={`text-sm font-semibold ${statusMessage.type === 'success' ? 'text-green-900' : statusMessage.type === 'warning' ? 'text-amber-900' : 'text-red-900'}`}>
-                
-                  {statusMessage.title}
-                </h4>
-                <p className={`text-xs mt-1 ${statusMessage.type === 'success' ? 'text-green-700' : statusMessage.type === 'warning' ? 'text-amber-700' : 'text-red-700'}`}>
-                
-                  {statusMessage.message}
-                </p>
-              </div>
-            </div>}
+      <Modal isOpen={isOpen} onClose={fechar} title="Solicitar assinatura digital" size="large">
+        <form onSubmit={enviar} className="space-y-4">
+          {/* WhatsApp do paciente: sempre visível para conferir ou corrigir */}
+          <div className="rounded-lg border border-gray-200 p-3">
+            <label htmlFor="assinatura-telefone" className="block text-sm font-medium text-gray-800">
+              WhatsApp de {pacienteNome}
+            </label>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <input
+                id="assinatura-telefone"
+                type="tel"
+                inputMode="tel"
+                value={telefone}
+                onChange={(e) => setTelefone(formatarTelefoneBR(e.target.value))}
+                placeholder="(85) 99999-0000"
+                className={`h-10 w-56 rounded-md border px-3 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-teal-500 ${telefone && !numeroOk ? 'border-amber-400' : 'border-gray-300'}`} />
 
-          {/* Link gerado - mostrar se disponível */}
-          {linkGerado && <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-              <div className="flex items-start gap-3">
-                <div className="bg-green-100 p-2 rounded-full">
-                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-green-900">
-                    Link de Assinatura Gerado!
-                  </h4>
-                  <p className="text-xs text-green-700 mt-1 mb-2">
-                    Copie o link abaixo e envie para o paciente:
+              {resultado && !resultado.enviado &&
+              <Button type="button" size="sm" onClick={reenviar} disabled={reenviando || !numeroOk} className="bg-teal-600 hover:bg-teal-700 text-white">
+                  {reenviando ? <Loader2Icon className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCwIcon className="w-4 h-4 mr-2" />}
+                  Tentar enviar de novo
+                </Button>
+              }
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500">
+              {!telefone ?
+              'Sem número: o link será gerado para você copiar e enviar.' :
+              !numeroOk ?
+              'Informe DDD + número.' :
+              numeroMudou ?
+              'Número diferente do cadastro.' :
+              'Número do cadastro. Confira antes de enviar.'}
+            </p>
+            {telefone && numeroOk && numeroMudou &&
+            <label className="mt-2 flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={salvarNoCadastro} onChange={(e) => setSalvarNoCadastro(e.target.checked)} className="rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+                Atualizar este número no cadastro do paciente
+              </label>
+            }
+          </div>
+
+          {resultado ?
+          <div className="space-y-3">
+              {resultado.enviado ?
+            <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                  <CheckCircleIcon className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-green-900">
+                    Enviado pelo WhatsApp para <strong>{resultado.telefone}</strong>. Quando {pacienteNome.split(' ')[0]} assinar, o atendimento fica marcado como assinado.
                   </p>
-                  <div className="flex items-center gap-2">
-                    <input type="text" value={linkGerado} readOnly className="flex-1 px-3 py-2 text-xs bg-white border border-green-300 rounded-lg" />
-                  
+                </div> :
 
-                    <Button type="button" variant="secondary" size="sm" onClick={handleCopiarLink} className={copiado ? 'bg-green-100 text-green-700' : ''}>
-                    
-                      <CopyIcon className="w-4 h-4 mr-1" />
-                      {copiado ? 'Copiado!' : 'Copiar'}
-                    </Button>
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <AlertTriangleIcon className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-900">
+                    <p className="font-medium">A mensagem não foi enviada.</p>
+                    <p className="mt-0.5">{resultado.motivo || 'O WhatsApp da clínica não respondeu.'}</p>
+                    <p className="mt-1 text-amber-800">Corrija o número e tente de novo, envie pelo seu WhatsApp ou copie o link abaixo.</p>
                   </div>
                 </div>
+            }
+              <div className="flex flex-wrap items-center gap-2">
+                <input value={resultado.link} readOnly onFocus={(e) => e.target.select()} className="flex-1 min-w-[16rem] h-9 rounded-md border border-gray-200 bg-gray-50 px-3 text-xs text-gray-700" />
+                <Button type="button" variant="secondary" size="sm" onClick={copiar}>
+                  <CopyIcon className="w-4 h-4 mr-1.5" />
+                  {copiado ? 'Copiado' : 'Copiar link'}
+                </Button>
+                {!resultado.enviado && linkWhatsAppProprio &&
+              <a
+                href={linkWhatsAppProprio}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center h-8 px-3 rounded-lg text-sm font-medium border border-green-600 text-green-700 hover:bg-green-50">
+                    <MessageCircleIcon className="w-4 h-4 mr-1.5" />
+                    Enviar pelo meu WhatsApp
+                  </a>
+              }
               </div>
-            </div>}
+            </div> :
 
-          {/* Aviso se não tem telefone */}
-          {semTelefone && !linkGerado ? <div className="bg-amber-50 p-4 rounded-lg flex items-start gap-3 border border-amber-200">
-              <div className="bg-amber-100 p-2 rounded-full">
-                <AlertCircleIcon className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-amber-900">
-                  Telefone não cadastrado
-                </h4>
-                <p className="text-xs text-amber-700 mt-1">
-                  O paciente <strong>{pacienteNome}</strong> não possui telefone
-                  cadastrado. O link será gerado para você copiar e enviar
-                  manualmente.
-                </p>
-              </div>
-            </div> : !linkGerado && <div className="bg-blue-50 p-4 rounded-lg flex items-start gap-3 border border-blue-100">
-                <div className="bg-blue-100 p-2 rounded-full">
-                  <SendIcon className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-blue-900">
-                    Envio via WhatsApp
-                  </h4>
-                  <p className="text-xs text-blue-700 mt-1">
-                    O paciente receberá um link único no número{' '}
-                    <strong>{pacienteTelefone}</strong> para assinar
-                    digitalmente no próprio celular.
-                  </p>
-                </div>
-              </div>}
-
-          {!linkGerado && <>
-              <Select label="Tipo de Documento" value={tipo} onChange={handleTipoChange} options={[{
-            value: 'termo_consentimento',
-            label: 'Termo de Consentimento'
-          }, {
-            value: 'autorizacao_procedimento',
-            label: 'Autorização de Procedimento'
-          }, {
-            value: 'contrato',
-            label: 'Contrato de Serviço'
-          }, {
-            value: 'outro',
-            label: 'Outro Documento'
-          }]} />
-            
-
-              <Input label="Título do Documento" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Termo de Consentimento" required icon={<FileTextIcon className="w-4 h-4 text-gray-400" />} />
-            
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descrição / Conteúdo Resumido
+          <>
+              <div className="grid gap-3 sm:grid-cols-[14rem_minmax(0,1fr)]">
+                <label className="block">
+                  <span className="block text-sm font-medium text-gray-700 mb-1">Tipo de documento</span>
+                  <select
+                  value={tipo}
+                  onChange={(e) => trocarTipo(e.target.value as TipoAssinatura)}
+                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    {TIPOS.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  </select>
                 </label>
-                <textarea className="w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 sm:text-sm p-3 border min-h-[100px]" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descreva o que o paciente está assinando..." required />
-              
-
-                <p className="text-xs text-gray-500 mt-1">
-                  Este texto aparecerá para o paciente ler antes de assinar.
-                </p>
+                <label className="block">
+                  <span className="block text-sm font-medium text-gray-700 mb-1">Título</span>
+                  <input
+                  value={titulo}
+                  onChange={(e) => setTitulo(e.target.value)}
+                  required
+                  placeholder="Ex.: Termo de consentimento para extração"
+                  className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </label>
               </div>
-            </>}
+              <label className="block">
+                <span className="flex items-baseline justify-between text-sm font-medium text-gray-700 mb-1">
+                  Texto que o paciente vai ler
+                  {tipo !== 'outro' && texto !== textoDoModelo.current &&
+                <button type="button" onClick={() => aplicarModelo(tipo)} className="text-xs font-normal text-teal-700 hover:underline">
+                      Voltar ao modelo
+                    </button>
+                }
+                </span>
+                <textarea
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                required
+                rows={10}
+                placeholder="Escreva o que o paciente está autorizando ou declarando."
+                className="w-full rounded-md border border-gray-300 p-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                <span className="block text-xs text-gray-500 mt-1">
+                  O paciente lê este texto inteiro na página de assinatura. Ajuste ao procedimento, se precisar.
+                </span>
+              </label>
+            </>
+          }
 
-          <div className="flex justify-end gap-2 pt-4 border-t mt-4">
-            <Button type="button" variant="ghost" onClick={() => {
-            setIsOpen(false);
-            setLinkGerado(null);
-            setCopiado(false);
-          }} disabled={loading}>
-              
-              {linkGerado ? 'Fechar' : 'Cancelar'}
+          {erro &&
+          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2" role="alert">{erro}</p>
+          }
+
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <Button type="button" variant="ghost" onClick={fechar} disabled={loading || reenviando}>
+              {resultado ? 'Fechar' : 'Cancelar'}
             </Button>
-            {!linkGerado && <Button type="submit" disabled={loading || !titulo || !descricao} className="bg-teal-600 hover:bg-teal-700 text-white">
-              
-                {loading ? <>
-                    <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
-                    Gerando...
-                  </> : <>
-                    <SendIcon className="w-4 h-4 mr-2" />
-                    {semTelefone ? 'Gerar Link' : 'Enviar Solicitação'}
-                  </>}
-              </Button>}
+            {!resultado &&
+            <Button type="submit" disabled={loading || !titulo.trim() || !texto.trim() || !!telefone && !numeroOk} className="bg-teal-600 hover:bg-teal-700 text-white">
+                {loading ?
+              <><Loader2Icon className="w-4 h-4 mr-2 animate-spin" />Gerando...</> :
+              <><SendIcon className="w-4 h-4 mr-2" />{telefone ? 'Enviar pelo WhatsApp' : 'Gerar link'}</>}
+              </Button>
+            }
           </div>
         </form>
       </Modal>
-    </>;
+    </>);
 }

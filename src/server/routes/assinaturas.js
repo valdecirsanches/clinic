@@ -189,7 +189,11 @@ async function enviarWhatsApp(clinicaId, telefone, mensagem) {
       console.log('📤📤📤 ======================================== FIM (sucesso)\n');
       return { enviado: true };
     } else {
-      const motivo = resultado.error || resultado.statusRedirect ? 'Mensagem redirecionada para Status' : 'Falha no envio';
+      // ⭐ FIX: o motivo real se perdia por precedência de operadores
+      // (a || b ? x : y) e a tela mostrava só "Falha no envio".
+      const motivo = resultado.statusRedirect ?
+      'A mensagem foi para o Status do WhatsApp em vez da conversa' :
+      resultado.error ? `WhatsApp da clínica recusou o envio: ${resultado.error}` : 'O WhatsApp da clínica não confirmou o envio';
       console.error('❌ [Assinaturas] Erro ao enviar WhatsApp:', motivo);
       console.log('📤📤📤 ======================================== FIM (erro)\n');
       return { enviado: false, motivo };
@@ -200,6 +204,42 @@ async function enviarWhatsApp(clinicaId, telefone, mensagem) {
     return { enviado: false, motivo: err.message };
   }
 }
+
+// ⭐ O link aponta para o MESMO sistema que pediu a assinatura.
+// Antes ele usava APP_URL fixo: um pedido feito numa instalação (ex.: x-star)
+// gerava link para outra (ex.: sky9), cujo servidor usa outro banco — o
+// paciente abria e via "Link inválido ou expirado".
+// Ordem: VITE_APP_BASE_URL da instalação (enviado pela tela como appUrl)
+// → Origin do navegador → APP_URL do servidor.
+function montarLinkAssinatura(req, token) {
+  const origin = req.body && req.body.appUrl || req.headers.origin || req.headers.referer;
+  let baseUrl = process.env.APP_URL || 'https://clinic-app.sky9.com.br';
+  try {
+    if (origin) {
+      const originUrl = new URL(String(origin));
+      if (originUrl.protocol === 'https:' || originUrl.protocol === 'http:') {
+        baseUrl = `${originUrl.protocol}//${originUrl.host}`;
+      }
+    }
+  } catch {/* Origin malformado: mantém APP_URL */}
+  return `${baseUrl}/assinar/${token}`;
+}
+
+// Mensagem do WhatsApp. O texto completo do documento NÃO vai na mensagem
+// (pode ser longo): o paciente lê tudo na página de assinatura.
+function montarMensagemAssinatura(pacienteNome, titulo, linkAssinatura) {
+  return `📝 *Solicitação de Assinatura Digital*\n\n` +
+  `Olá, ${pacienteNome}!\n\n` +
+  `Você recebeu um documento para ler e assinar:\n` +
+  `📄 *${titulo}*\n\n` +
+  `🔗 Abra o link para ler e assinar:\n${linkAssinatura}\n\n` +
+  `⏰ O link vale por 7 dias.`;
+}
+
+const telefoneValido = (t) => {
+  const d = String(t || '').replace(/\D/g, '');
+  return d.length >= 10 && d.length <= 13;
+};
 
 // ==================== SOLICITAR ASSINATURA ====================
 router.post('/solicitar', async (req, res) => {
@@ -258,47 +298,19 @@ router.post('/solicitar', async (req, res) => {
 
     console.log('✅ [Assinaturas] Assinatura criada:', id);
 
-    // ⭐ O link aponta para o MESMO sistema que pediu a assinatura.
-    // Antes ele usava APP_URL fixo: um pedido feito numa instalação (ex.:
-    // x-star) gerava link para outra (ex.: sky9), cujo servidor usa outro
-    // banco — o paciente abria e via "Link inválido ou expirado".
-    // O Origin é posto pelo navegador e identifica o front que fez o pedido;
-    // esse front conversa com este servidor, logo encontra o token.
-    // Ordem: VITE_APP_BASE_URL da instalação (enviado pela tela como appUrl)
-    // → Origin do navegador → APP_URL do servidor.
-    const origin = req.body.appUrl || req.headers.origin || req.headers.referer;
-    let baseUrl = process.env.APP_URL || 'https://clinic-app.sky9.com.br';
-    try {
-      if (origin) {
-        const originUrl = new URL(String(origin));
-        if (originUrl.protocol === 'https:' || originUrl.protocol === 'http:') {
-          baseUrl = `${originUrl.protocol}//${originUrl.host}`;
-        }
-      }
-    } catch {
-
-      // Origin malformado: mantém APP_URL
-    }
-    const linkAssinatura = `${baseUrl}/assinar/${token}`;
-
-    console.log('🔗 [Assinaturas] Origin:', origin);
-    console.log('🔗 [Assinaturas] Base URL:', baseUrl);
+    const linkAssinatura = montarLinkAssinatura(req, token);
+    // Link para o mesmo sistema que pediu (ver montarLinkAssinatura)
     console.log('🔗 [Assinaturas] Link:', linkAssinatura);
 
     let whatsappEnviado = false;
     let whatsappErro = null;
 
-    if (pacienteTelefone) {
+    if (pacienteTelefone && !telefoneValido(pacienteTelefone)) {
+      whatsappErro = 'Número de WhatsApp inválido (use DDD + número)';
+    } else if (pacienteTelefone) {
       console.log('📱 [Assinaturas] Telefone informado, tentando enviar WhatsApp...');
 
-      const mensagem = `📝 *Solicitação de Assinatura Digital*\n\n` +
-      `Olá, ${pacienteNome}!\n\n` +
-      `Você recebeu uma solicitação para assinar digitalmente:\n\n` +
-      `📄 *${titulo}*\n` +
-      `${descricao ? `\n${descricao}\n` : ''}\n` +
-      `🔗 Clique no link abaixo para assinar:\n${linkAssinatura}\n\n` +
-      `⏰ Este link é válido por 7 dias.\n\n` +
-      `_Assinatura digital com validade jurídica._`;
+      const mensagem = montarMensagemAssinatura(pacienteNome, titulo, linkAssinatura);
 
       const resultado = await enviarWhatsApp(clinicaId, pacienteTelefone, mensagem);
       whatsappEnviado = resultado.enviado;
@@ -328,6 +340,34 @@ router.post('/solicitar', async (req, res) => {
   } catch (err) {
     console.error('❌ [Assinaturas] Erro:', err);
     console.log('📝📝📝 ======================================== FIM (erro)\n');
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== REENVIAR PELO WHATSAPP ====================
+// POST /api/assinaturas/:id/reenviar { clinicaId, telefone }
+// Reenvia o MESMO link (sem criar outra solicitação), opcionalmente para um
+// número corrigido — usado quando o primeiro envio falhou.
+router.post('/:id/reenviar', async (req, res) => {
+  try {
+    const { clinicaId, telefone } = req.body || {};
+    if (!clinicaId) return res.status(400).json({ error: 'clinicaId é obrigatório' });
+    if (!telefoneValido(telefone)) return res.status(400).json({ error: 'Informe o WhatsApp com DDD (ex.: 85 99999-0000).' });
+    const db = getClinicaDB(clinicaId);
+    await ensureAssinaturasTable(db);
+    const row = await new Promise((resolve, reject) =>
+    db.get('SELECT * FROM assinaturas WHERE id = ?', [req.params.id], (err, r) => err ? reject(err) : resolve(r))
+    );
+    if (!row) return res.status(404).json({ error: 'Solicitação não encontrada' });
+    if (row.status === 'assinado') return res.status(409).json({ error: 'Este documento já foi assinado.' });
+    if (new Date(row.expiraEm) < new Date()) return res.status(410).json({ error: 'O link expirou. Gere uma nova solicitação.' });
+    const linkAssinatura = montarLinkAssinatura(req, row.token);
+    const resultado = await enviarWhatsApp(clinicaId, telefone, montarMensagemAssinatura(row.pacienteNome, row.titulo, linkAssinatura));
+    if (String(row.pacienteTelefone || '') !== String(telefone)) {
+      await new Promise((resolve) => db.run('UPDATE assinaturas SET pacienteTelefone = ? WHERE id = ?', [telefone, row.id], () => resolve()));
+    }
+    res.json({ success: true, linkAssinatura, whatsappEnviado: resultado.enviado, whatsappErro: resultado.motivo || null });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

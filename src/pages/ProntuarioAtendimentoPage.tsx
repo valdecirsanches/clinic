@@ -5867,6 +5867,7 @@ export function ProntuarioAtendimentoPage({
             pacienteId={consulta?.pacienteId || pacienteId || ''}
             pacienteNome={paciente?.nome || consulta?.paciente || ''}
             pacienteTelefone={paciente?.celular || paciente?.telefone || ''}
+            onTelefoneAtualizado={(numero) => setPaciente((p) => p ? { ...p, telefone: numero, celular: numero } : p)}
             clinicaId={clinicaId}
             atendimentoId={consultaIdReal} />
           }
