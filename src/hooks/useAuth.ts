@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Usuario, Sessao, Clinica, Operadora } from '../types';
 import { API_BASE_URL, isMagicPatterns } from '../config/api';
 import type { DesafioLogin, ResultadoLogin } from '../types/login';
+import { obterToken, salvarToken } from '../utils/autenticacaoApi';
 
 // Chaves do localStorage para persistência
 const STORAGE_KEYS = {
@@ -24,10 +25,17 @@ export function useAuth() {
   // ⭐ Ref para o BroadcastChannel
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
-    loadUsuarios();
-
     // Verificar sessão ativa
-    const storedSessao = localStorage.getItem(STORAGE_KEYS.SESSAO);
+    let storedSessao = localStorage.getItem(STORAGE_KEYS.SESSAO);
+    // ⭐ Sessão gravada antes do login com token (ou token apagado): o servidor
+    // não a aceita mais — pede login de novo em vez de abrir telas vazias.
+    if (storedSessao && !obterToken() && !isMagicPatterns) {
+      console.log('🔐 [useAuth] Sessão sem token de acesso — novo login necessário');
+      localStorage.removeItem(STORAGE_KEYS.SESSAO);
+      storedSessao = null;
+    }
+    if (storedSessao || isMagicPatterns) loadUsuarios();else
+    setLoading(false);
     console.log('🔍 [useAuth] Verificando sessão armazenada...');
     if (storedSessao) {
       try {
@@ -307,6 +315,8 @@ export function useAuth() {
   const concluirLogin = (responseData: any): ResultadoLogin => {
     {
       const usuario = responseData.usuario;
+      // Token de acesso: vai em todas as chamadas seguintes (autenticacaoApi)
+      salvarToken(responseData.token);
       // ⭐ CORRIGIDO: Servidor envia clinicaAtual/operadoraSelecionada — aceita ambos os nomes
       const operadoraPreSelecionada =
       responseData.operadoraPreSelecionada ||
@@ -364,6 +374,10 @@ export function useAuth() {
       };
       setSessao(novaSessao);
       localStorage.setItem(STORAGE_KEYS.SESSAO, JSON.stringify(novaSessao));
+      // A lista de usuários só pode ser lida depois do login
+      loadUsuarios();
+      // Recarrega operadoras, clínicas etc. (useRevalidacao escuta este evento)
+      setTimeout(() => window.dispatchEvent(new Event('sessao-iniciada')), 0);
 
       // ⭐ Registra sessão no servidor (silencioso - não bloqueia login)
       try {
@@ -482,6 +496,11 @@ export function useAuth() {
         }).catch(() => {});
       } catch {}
     }
+
+    // Invalida o token no servidor (e o cookie de imagens/downloads)
+    fetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' }).
+    catch(() => {}).
+    finally(() => salvarToken(null));
 
     // Dispara evento customizado para notificar o App sobre o logout
     window.dispatchEvent(new CustomEvent('user-logout'));

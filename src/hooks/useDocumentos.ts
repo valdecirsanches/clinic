@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '../config/api';
+import { urlComToken } from '../utils/autenticacaoApi';
 import { useRevalidacao } from './useRevalidacao';
 export interface Documento {
   id: string;
@@ -163,10 +164,10 @@ export function useDocumentos(clinicaId: string, pacienteId?: string) {
     setDocumentos((prev) => prev.filter((doc) => doc.id !== id));
   };
   const getUrlDownload = (id: string): string => {
-    return `${API_BASE_URL}/api/documentos/${id}/download?clinicaId=${clinicaId}`;
+    return urlComToken(`${API_BASE_URL}/api/documentos/${id}/download?clinicaId=${clinicaId}`);
   };
   const getUrlVisualizacao = (id: string): string => {
-    return `${API_BASE_URL}/api/documentos/${id}/visualizar?clinicaId=${clinicaId}`;
+    return urlComToken(`${API_BASE_URL}/api/documentos/${id}/visualizar?clinicaId=${clinicaId}`);
   };
 
   // ⭐⭐⭐ FIX v3.0: Prioriza URL da nuvem (nuvem.sky9.com.br) → fallback local → fallback API
@@ -184,7 +185,7 @@ export function useDocumentos(clinicaId: string, pacienteId?: string) {
       return `${API_BASE_URL}${(doc as any).url}`;
     }
     // Fallback: usa rota de API (mais lenta, faz DB lookup + fs.readFile)
-    return `${API_BASE_URL}/api/documentos/${doc.id}/visualizar?clinicaId=${clinicaId}`;
+    return urlComToken(`${API_BASE_URL}/api/documentos/${doc.id}/visualizar?clinicaId=${clinicaId}`);
   };
   const formatarTamanho = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';

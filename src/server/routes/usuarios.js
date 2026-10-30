@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const dbGlobal = require('../databaseGlobal');
 const senhas = require('../services/senhas');
+const autenticacao = require('../services/autenticacao');
 const { normalizarTelefone } = require('../services/doisFatores');
 const { registrarAuditoriaUsuario, diferencas, atorDaRequisicao } = require('../services/auditoriaUsuarios');
 
@@ -331,6 +332,15 @@ router.put('/:id', async (req, res) => {
       WHERE id = ?
     `).run(...valores);
 
+    // Perfil/acesso pode ter mudado: o cache do token não deve segurar o antigo.
+    // Desativado ou senha trocada por terceiro → encerra as sessões dele.
+    autenticacao.esquecerUsuario(id);
+    if (!ativo || atualizarSenha && !(req.usuario && req.usuario.id === id)) {
+      autenticacao.revogarTokensDoUsuario(id).catch(() => {});
+    } else if (atualizarSenha) {
+      autenticacao.revogarTokensDoUsuario(id, req.authToken).catch(() => {});
+    }
+
     const usuarioAtualizado = await dbGlobal.prepare('SELECT * FROM usuarios WHERE id = ?').get(id);
 
     const mudancas = diferencas(usuarioAntes, usuarioAtualizado, atualizarSenha);
@@ -387,6 +397,8 @@ router.post('/:id/trocar-senha', async (req, res) => {
       return res.status(401).json({ error: 'A senha atual não confere.' });
     }
     await dbGlobal.prepare('UPDATE usuarios SET senha = ? WHERE id = ?').run(await senhas.gerarHash(novaSenha), row.id);
+    // Senha nova encerra as outras sessões abertas (mantém a atual)
+    autenticacao.revogarTokensDoUsuario(row.id, req.authToken).catch(() => {});
     res.json({ success: true });
   } catch (err) {
     console.error('❌ Erro ao trocar senha:', err);
@@ -486,6 +498,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const alvo = await dbGlobal.prepare('SELECT id, nome, tipo, clinicaId, email, crm, uf FROM usuarios WHERE id = ?').get(id);
     await dbGlobal.prepare('DELETE FROM usuarios WHERE id = ?').run(id);
+    autenticacao.revogarTokensDoUsuario(id).catch(() => {});
     if (alvo) {
       registrarAuditoriaUsuario(req, {
         acao: 'EXCLUSAO_USUARIO',

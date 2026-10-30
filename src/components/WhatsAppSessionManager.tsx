@@ -15,6 +15,7 @@ import {
   XCircleIcon } from
 'lucide-react';
 import { API_BASE_URL } from '../config/api';
+import { urlComToken } from '../utils/autenticacaoApi';
 import { clearWhatsAppAuthError } from '../hooks/useWhatsApp';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -672,7 +673,7 @@ cacheBuster?: number)
 : string {
   const params = new URLSearchParams({ serverUrl, sessionName });
   if (cacheBuster) params.set('t', String(cacheBuster));
-  return `${API_BASE_URL}/api/whatsapp/qr-image?${params.toString()}`;
+  return urlComToken(`${API_BASE_URL}/api/whatsapp/qr-image?${params.toString()}`);
 }
 
 function getStatusPresentation(status: SessionStatus): {

@@ -6,6 +6,7 @@
 // Limite: um backup por dia por clínica — conferido aqui E no servidor.
 
 import { BACKUP_API_URL } from '../config/api';
+import { urlComToken } from './autenticacaoApi';
 
 // ─── Tipos mínimos da File System Access API (ainda fora do lib.dom) ─────────
 type Permissao = 'granted' | 'denied' | 'prompt';
@@ -165,7 +166,7 @@ export interface AndamentoBackup {
 }
 
 function urlBackup(rota: string, clinicaId: string, usuarioId: string) {
-  return `${BACKUP_API_URL}/api/backup-cliente/${rota}?clinicaId=${encodeURIComponent(clinicaId)}&usuarioId=${encodeURIComponent(usuarioId)}`;
+  return urlComToken(`${BACKUP_API_URL}/api/backup-cliente/${rota}?clinicaId=${encodeURIComponent(clinicaId)}&usuarioId=${encodeURIComponent(usuarioId)}`);
 }
 
 async function chamar(url: string, timeoutMs?: number): Promise<Response> {

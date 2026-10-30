@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronDownIcon, DownloadIcon, LoaderIcon } from 'lucide-react';
 import { BACKUP_API_URL as API_BASE_URL } from '../../config/api';
+import { urlComToken } from '../../utils/autenticacaoApi';
 
 interface ArquivoBackup {
   nome: string;
@@ -117,7 +118,7 @@ export function ClinicaBackupLinha({
                     <p className="text-xs text-gray-500">{dataHora(a.em)} · {tamanho(a.tamanho)}</p>
                   </div>
                   <a
-              href={`${API_BASE_URL}/api/backup/download?${qs}&clinicaId=${encodeURIComponent(id)}&nome=${encodeURIComponent(a.nome)}`}
+              href={urlComToken(`${API_BASE_URL}/api/backup/download?${qs}&clinicaId=${encodeURIComponent(id)}&nome=${encodeURIComponent(a.nome)}`)}
               className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
               aria-label={`Baixar ${a.nome}`}>
               

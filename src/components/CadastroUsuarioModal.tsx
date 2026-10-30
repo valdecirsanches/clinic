@@ -20,7 +20,8 @@ interface CadastroUsuarioModalProps {
       tipo: TipoUsuario;
     };
   }) => void;
-  onBuscarOperadora: (cnpj: string) => Operadora | undefined;
+  /** @deprecated o CNPJ agora é conferido no servidor */
+  onBuscarOperadora?: (cnpj: string) => Operadora | undefined;
 }
 export function CadastroUsuarioModal({
   isOpen,
@@ -57,25 +58,21 @@ export function CadastroUsuarioModal({
       return;
     }
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      const operadora = onBuscarOperadora(cnpj);
-      if (operadora) {
-        setOperadoraEncontrada(operadora);
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/usuarios?operadoraId=${operadora.id}`);
-          if (response.ok) {
-            const usuarios = await response.json();
-            const temUsuarios = usuarios.length > 0;
-            if (temUsuarios) {
-              setErro('Esta operadora já possui usuários cadastrados. Entre em contato com o administrador para solicitar acesso.');
-              setOperadoraEncontrada(null);
-              setBuscando(false);
-              return;
-            }
-          }
-        } catch (err) {
-          console.error('Erro ao verificar usuários:', err);
-        }
+      // O servidor confere o CNPJ: a lista de operadoras e usuários não é
+      // mais entregue a quem ainda não entrou no sistema.
+      const response = await fetch(`${API_BASE_URL}/api/auth/cadastro/cnpj/${encodeURIComponent(cnpj.replace(/\D/g, ''))}`);
+      const dados = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setErro(dados.error || 'CNPJ inválido');
+        return;
+      }
+      if (dados.existe && dados.temUsuarios) {
+        setErro('Esta operadora já possui usuários cadastrados. Entre em contato com o administrador para solicitar acesso.');
+        setOperadoraEncontrada(null);
+        return;
+      }
+      if (dados.existe && dados.operadora) {
+        setOperadoraEncontrada(dados.operadora as Operadora);
         setPasso(2);
       } else {
         setOperadoraEncontrada(null);

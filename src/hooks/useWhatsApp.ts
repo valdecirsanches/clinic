@@ -7,6 +7,7 @@ import {
   SendMessageResponse } from
 '../types/whatsapp';
 import { API_BASE_URL, WAHA_API_KEY } from '../config/api';
+import { urlComToken } from '../utils/autenticacaoApi';
 
 // ⭐⭐⭐ GLOBAL AUTH ERROR CACHE - compartilhado entre TODAS as instâncias do hook ⭐⭐⭐
 // Quando qualquer instância detecta 401, TODAS param de fazer chamadas por 5 minutos
@@ -315,7 +316,7 @@ apiKeyProp?: string)
       {
         // Usa o proxy do servidor para buscar a imagem do QR
         const qrImageUrl = `${API_BASE_URL}/api/whatsapp/qr-image?serverUrl=${encodeURIComponent(serverUrl)}&sessionName=${encodeURIComponent(sessionName)}${apiKeyParam}&t=${Date.now()}`;
-        resolvedQrImage = qrImageUrl;
+        resolvedQrImage = urlComToken(qrImageUrl);
         console.log('🔍 [useWhatsApp] QR Image: via proxy qr-image endpoint');
       }
       setQrCodeImage(resolvedQrImage);

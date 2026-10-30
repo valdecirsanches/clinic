@@ -49,6 +49,8 @@ opcoes?: {
 
     window.addEventListener('focus', executar);
     window.addEventListener('online', executar);
+    // Logo após o login: antes dele o servidor recusa as leituras (401)
+    window.addEventListener('sessao-iniciada', executar);
     document.addEventListener('visibilitychange', aoFicarVisivel);
 
     const timer =
@@ -57,6 +59,7 @@ opcoes?: {
     return () => {
       window.removeEventListener('focus', executar);
       window.removeEventListener('online', executar);
+      window.removeEventListener('sessao-iniciada', executar);
       document.removeEventListener('visibilitychange', aoFicarVisivel);
       if (timer) window.clearInterval(timer);
     };

@@ -1491,39 +1491,28 @@ function MainApp() {
     };
   }) => {
     try {
-      let operadoraIdParaUsuario: string;
-      if (dados.operadora) {
-        const novaOperadora = await addOperadora(dados.operadora);
-        if (!novaOperadora || !novaOperadora.id) {
-          throw new Error('Erro ao criar operadora: ID não retornado');
-        }
-        operadoraIdParaUsuario = novaOperadora.id;
-      } else if (dados.operadoraExistenteId) {
-        operadoraIdParaUsuario = dados.operadoraExistenteId;
-      } else {
-        dialogError('Erro no Cadastro', 'Operadora não identificada');
-        return;
-      }
-      const response = await fetch(`${API_BASE_URL}/api/usuarios`, {
+      // Um único pedido público: o servidor cria a operadora (se for nova) e o
+      // administrador, e recusa se a operadora já tiver usuários.
+      const response = await fetch(`${API_BASE_URL}/api/auth/cadastro`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          nome: dados.usuario.nome,
-          email: dados.usuario.email,
-          senha: dados.usuario.senha,
-          tipo: dados.usuario.tipo,
-          operadoraId: operadoraIdParaUsuario,
-          clinicaId: null,
-          ativo: true
+          operadora: dados.operadora,
+          cnpj: dados.operadora?.cnpj || null,
+          operadoraExistenteId: dados.operadoraExistenteId,
+          usuario: {
+            nome: dados.usuario.nome,
+            email: dados.usuario.email,
+            senha: dados.usuario.senha
+          }
         })
       });
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Erro ao criar usuário');
       }
-      await refreshUsuarios();
       success(
         'Cadastro Realizado!',
         'Sua conta foi criada com sucesso. Faça login para continuar.',

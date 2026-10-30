@@ -24,6 +24,7 @@ import {
   ENV_VIDEO_PROVIDER } from
 '../config/env';
 import { API_BASE_URL } from '../config/api';
+import { urlComToken } from './autenticacaoApi';
 
 // Remove barra final para evitar `//` ao concatenar com o nome da sala.
 const VIDEO_BASE_URL = (ENV_VIDEO_BASE_URL || 'https://meet.ffmuc.net').replace(
@@ -188,7 +189,9 @@ export function gerarLinkSalaBBB(params: {
     role: params.role === 'moderator' ? 'moderator' : 'attendee',
     nome: params.nome || ''
   }).toString();
-  return `${API_BASE_URL}/api/video/bbb/join?${qs}`;
+  const url = `${API_BASE_URL}/api/video/bbb/join?${qs}`;
+  // Só o link do profissional (moderador) leva o token; o do paciente é público.
+  return params.role === 'moderator' ? urlComToken(url) : url;
 }
 
 /**

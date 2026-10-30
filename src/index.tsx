@@ -1,6 +1,8 @@
 // ⭐ PRIMEIRO import: no vídeo de demonstração (?demo=1) isola o sistema dos
 // dados reais antes de qualquer outra coisa rodar.
 import './utils/modoDemo';
+// ⭐ Envia o token de login em toda chamada à API (antes de qualquer fetch)
+import './utils/instalarAutenticacao';
 import React, { useEffect, createElement } from 'react';
 // Silence verbose console output in production builds (Phase 1 — performance).
 // Keeps console.error so real failures still surface, but no-ops the chatty

@@ -76,7 +76,7 @@ async function precoDoAssistente(clinicaId) {
 }
 
 async function exigirUsuario(req, res, { exigirAtivacao = true } = {}) {
-  const usuarioId = String(req.body && req.body.usuarioId || req.query.usuarioId || '').trim();
+  const usuarioId = String(req.usuario && req.usuario.id || req.body && req.body.usuarioId || req.query.usuarioId || '').trim();
   const clinicaId = String(req.body && req.body.clinicaId || req.query.clinicaId || '').trim();
   if (!usuarioId || !clinicaId) {
     res.status(400).json({ error: 'usuarioId e clinicaId são obrigatórios.' });

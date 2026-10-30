@@ -7,8 +7,10 @@ const dbGlobal = require('../databaseGlobal');
 
 /** Retorna o usuário ou null (já respondendo 400/403/500). */
 async function exigirSuperAdmin(req, res) {
+  // Com login, vale o usuário do TOKEN — o usuarioId enviado pelo navegador
+  // não é mais confiável (bastava informar o id de um super admin).
   const usuarioId = String(
-    req.query.usuarioId || req.body && req.body.usuarioId || req.get('x-usuario-id') || ''
+    req.usuario && req.usuario.id || req.query.usuarioId || req.body && req.body.usuarioId || req.get('x-usuario-id') || ''
   ).trim();
   if (!usuarioId) {
     res.status(400).json({ error: 'usuarioId é obrigatório.' });

@@ -1046,6 +1046,7 @@ async function getClinicaDBAsync(clinicaId) {
 // Na primeira chamada, inicia a criação assíncrona e retorna um wrapper "lazy".
 
 function getClinicaDB(clinicaId) {
+  try {require('./services/autenticacao').registrarAcessoClinica(clinicaId);} catch (e) {/* nunca impede o acesso */}
   if (clinicaPools[clinicaId]) {
     return clinicaPools[clinicaId];
   }

@@ -144,6 +144,14 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// ==================== AUTENTICAÇÃO ====================
+// Todo /api exige o token emitido no login, exceto as rotas públicas listadas
+// em services/autenticacao.js. Confere também se o usuário tem acesso à
+// clínica pedida. AUTH_MODE=log só registra (não bloqueia).
+const autenticacao = require(path.join(SERVER_DIR, 'services/autenticacao'));
+app.use('/api', autenticacao.middleware);
+console.log(`🔐 Autenticação da API: ${autenticacao.MODO === 'log' ? '⚠️ MODO LOG (não bloqueia — AUTH_MODE=log)' : 'ativa'}`);
+
 // Serve arquivos estáticos de uploads
 const uploadsDir = path.join(SERVER_DIR, 'uploads');
 if (!fs.existsSync(uploadsDir)) {

@@ -29,7 +29,7 @@ const {
 
 async function exigirSuperAdmin(req, res) {
   const usuarioId = String(
-    req.query.usuarioId || req.body?.usuarioId || ''
+    req.usuario?.id || req.query.usuarioId || req.body?.usuarioId || ''
   ).trim();
   if (!usuarioId) {
     res.status(400).json({ error: 'usuarioId é obrigatório.' });
