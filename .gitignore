@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Arquivos enviados (fotos/documentos de pacientes) e segredos locais do servidor
+src/server/uploads/
+src/server/downloads/
