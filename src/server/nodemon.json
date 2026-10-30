@@ -1,0 +1,19 @@
+{
+  "watch": ["*.js", "routes", "services", "config", "middleware", "utils"],
+  "ext": "js",
+  "ignore": [
+    "node_modules/**",
+    "backups/**",
+    "backup/**",
+    "tmp/**",
+    "temp/**",
+    "uploads/**",
+    "data/**",
+    "logs/**",
+    "**/*.json",
+    "**/*.sql",
+    "**/*.gz",
+    "**/*.tmp"
+  ],
+  "delay": 1000
+}
