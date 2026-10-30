@@ -66,6 +66,8 @@ interface RelatoriosEtapaProps {
   onSave?: (data: RelatorioData) => void;
   onDelete?: (id: string) => void;
   readOnly?: boolean;
+  /** Há alterações não salvas (rascunho restaurado ou texto de outra aba): Salvar já começa habilitado. */
+  naoSalvo?: boolean;
   clinicaId?: string;
   profissionalId?: string;
   pacienteNome?: string;
@@ -140,6 +142,7 @@ export function RelatoriosEtapa({
   onSave,
   onDelete,
   readOnly = false,
+  naoSalvo = false,
   clinicaId,
   profissionalId,
   pacienteNome,
@@ -155,7 +158,7 @@ export function RelatoriosEtapa({
   });
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(naoSalvo);
   const [isNew, setIsNew] = useState(true);
   const [showCidDropdown, setShowCidDropdown] = useState(false);
   const [cidSearch, setCidSearch] = useState('');
@@ -875,6 +878,8 @@ export function RelatoriosEtapa({
             <Button
               size="sm"
               onClick={handleSave}
+              data-salvar-etapa
+              title="Salvar (Ctrl+S)"
               disabled={isSaving || !hasChanges}
               className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow transition-all">
               

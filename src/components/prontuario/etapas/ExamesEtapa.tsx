@@ -92,6 +92,8 @@ interface ExamesEtapaProps {
   onDuplicate?: (item: ExameItem) => void;
   onNovoExame?: () => void;
   readOnly?: boolean;
+  /** Há alterações não salvas (rascunho restaurado ou texto de outra aba): Salvar já começa habilitado. */
+  naoSalvo?: boolean;
   clinicaId?: string;
   profissionalId?: string;
   pacienteId?: string;
@@ -130,6 +132,7 @@ export function ExamesEtapa({
   onNovoExame,
   registroAbertoId = '',
   readOnly = false,
+  naoSalvo = false,
   clinicaId: clinicaIdProp,
   profissionalId,
   pacienteId,
@@ -192,7 +195,7 @@ export function ExamesEtapa({
   };
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(naoSalvo);
   const [showCidDropdown, setShowCidDropdown] = useState(false);
   const [cidSearch, setCidSearch] = useState('');
   // ⭐ Busca CID-10 na API (igual ao DiagnosticoEtapa) — sem lista hardcoded.
@@ -1071,8 +1074,9 @@ export function ExamesEtapa({
             {!readOnly && tipoSolicitacao === 'outro' &&
             <Button
               size="sm"
-              title="Salva manualmente as alterações do pedido de exame."
+              title="Salvar o pedido de exame (Ctrl+S)"
               onClick={handleManualSave}
+              data-salvar-etapa
               disabled={isSaving || !hasChanges}
               className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow transition-all">
               

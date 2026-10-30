@@ -198,7 +198,7 @@ export function PacienteHeader({
           <div className="flex items-center gap-3 mb-0.5">
             {/* Foto do paciente */}
             <div
-              className={`w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 flex items-center justify-center flex-shrink-0 ${onPacienteClick ? 'cursor-pointer hover:border-blue-400 transition-colors' : ''}`}
+              className={`w-9 h-9 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 flex items-center justify-center flex-shrink-0 ${onPacienteClick ? 'cursor-pointer hover:border-blue-400 transition-colors' : ''}`}
               onClick={() => onPacienteClick && onPacienteClick(paciente.id)}
               title={onPacienteClick ? 'Abrir cadastro do paciente' : undefined}>
               
@@ -225,13 +225,13 @@ export function PacienteHeader({
                 {onPacienteClick ?
                 <button
                   onClick={() => onPacienteClick(paciente.id)}
-                  className="text-xl font-medium text-blue-600 uppercase tracking-wide hover:text-blue-800 hover:underline transition-colors cursor-pointer text-left"
+                  className="text-lg font-semibold text-gray-900 hover:text-teal-700 hover:underline underline-offset-2 transition-colors cursor-pointer text-left"
                   title="Abrir cadastro do paciente">
                   
                     {paciente.nome}
                   </button> :
 
-                <h1 className="text-xl font-medium text-blue-600 uppercase tracking-wide">
+                <h1 className="text-lg font-semibold text-gray-900">
                     {paciente.nome}
                   </h1>
                 }
@@ -374,7 +374,7 @@ export function PacienteHeader({
           </div>
 
           {/* Info do paciente */}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 uppercase">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
             {idade !== null &&
             <>
                 <span>Idade: {idade} anos</span>
@@ -443,7 +443,7 @@ export function PacienteHeader({
                 <ClockIcon
                 className={`w-4 h-4 ${timerStatus === 'running' ? 'animate-pulse' : ''}`} />
               
-                <span className="text-xl font-light font-mono">
+                <span className="text-base font-medium font-mono tabular-nums">
                   {tempoAtendimento}
                 </span>
               </div>

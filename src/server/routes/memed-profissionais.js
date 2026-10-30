@@ -119,6 +119,14 @@ async function getMemedConfig() {
   return null;
 }
 
+// Endereço da API conforme o ambiente escolhido em Configurações Globais.
+// Antes era sempre o de produção, mesmo com "sandbox" selecionado.
+function baseApiMemed(config) {
+  return config && config.ambiente === 'sandbox' ?
+  'https://sandbox.api.memed.com.br' :
+  'https://integrations.api.memed.com.br';
+}
+
 // POST /api/memed-profissionais/proxy/cadastrar — Cadastra profissional na Memed
 router.post('/proxy/cadastrar', async (req, res) => {
   try {
@@ -126,7 +134,7 @@ router.post('/proxy/cadastrar', async (req, res) => {
     if (!config || !config.apiKey || !config.secretKey) {
       return res.status(400).json({ error: 'Memed não configurado. Configure em Configurações Globais.' });
     }
-    const url = `https://integrations.api.memed.com.br/v1/sinapse-prescricao/usuarios?api-key=${config.apiKey}&secret-key=${config.secretKey}`;
+    const url = `${baseApiMemed(config)}/v1/sinapse-prescricao/usuarios?api-key=${config.apiKey}&secret-key=${config.secretKey}`;
 
     // ⭐ DEBUG: Log detalhado do payload enviado
     const bodyToSend = JSON.stringify(req.body);
@@ -165,7 +173,7 @@ router.get('/proxy/token/:identifier', async (req, res) => {
       return res.status(400).json({ error: 'Memed não configurado.' });
     }
     const { identifier } = req.params;
-    const url = `https://integrations.api.memed.com.br/v1/sinapse-prescricao/usuarios/${identifier}?api-key=${config.apiKey}&secret-key=${config.secretKey}`;
+    const url = `${baseApiMemed(config)}/v1/sinapse-prescricao/usuarios/${identifier}?api-key=${config.apiKey}&secret-key=${config.secretKey}`;
     console.log('🔍 [Memed Proxy] Buscando token para:', identifier);
 
     const response = await nodeFetch(url, {
@@ -193,7 +201,7 @@ router.delete('/proxy/excluir/:identifier', async (req, res) => {
       return res.status(400).json({ error: 'Memed não configurado.' });
     }
     const { identifier } = req.params;
-    const url = `https://integrations.api.memed.com.br/v1/sinapse-prescricao/usuarios/${identifier}?api-key=${config.apiKey}&secret-key=${config.secretKey}`;
+    const url = `${baseApiMemed(config)}/v1/sinapse-prescricao/usuarios/${identifier}?api-key=${config.apiKey}&secret-key=${config.secretKey}`;
     console.log('🗑️ [Memed Proxy] Excluindo profissional:', identifier);
 
     const response = await nodeFetch(url, {
@@ -221,7 +229,7 @@ router.get('/proxy/cidades', async (req, res) => {
       return res.status(400).json({ error: 'Memed não configurado.' });
     }
     const { uf, q } = req.query;
-    const url = `https://integrations.api.memed.com.br/v1/cidades/?filter[uf]=${uf || ''}&filter[q]=${q || ''}`;
+    const url = `${baseApiMemed(config)}/v1/cidades/?filter[uf]=${uf || ''}&filter[q]=${q || ''}`;
     console.log('🏙️ [Memed Proxy] Buscando cidade:', uf, q);
 
     const response = await nodeFetch(url, {

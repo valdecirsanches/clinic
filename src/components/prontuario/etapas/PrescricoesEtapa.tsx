@@ -96,6 +96,8 @@ interface PrescricoesEtapaProps {
   onChange?: (data: PrescricaoData) => void;
   onSave?: (data: PrescricaoData) => void;
   readOnly?: boolean;
+  /** Há alterações não salvas (rascunho restaurado ou texto de outra aba): Salvar já começa habilitado. */
+  naoSalvo?: boolean;
   clinicaId?: string;
   profissional?: any;
   profissionalCompleto?: any;
@@ -122,6 +124,7 @@ export function PrescricoesEtapa({
   onChange,
   onSave,
   readOnly = false,
+  naoSalvo = false,
   clinicaId,
   profissional,
   profissionalCompleto,
@@ -147,7 +150,7 @@ export function PrescricoesEtapa({
   });
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(naoSalvo);
   const [isNew, setIsNew] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
@@ -1350,6 +1353,8 @@ export function PrescricoesEtapa({
             <Button
               size="sm"
               onClick={handleManualSave}
+              data-salvar-etapa
+              title="Salvar (Ctrl+S)"
               disabled={isSaving || !hasChanges}
               className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow transition-all">
               

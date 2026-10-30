@@ -31,6 +31,8 @@ interface ExameFisicoEtapaProps {
   onChange?: (data: ExameFisicoData) => void;
   onSave?: (data: ExameFisicoData) => void;
   readOnly?: boolean;
+  /** Há alterações não salvas (rascunho restaurado ou texto de outra aba): Salvar já começa habilitado. */
+  naoSalvo?: boolean;
   pacienteId?: string;
   atendimentoId?: string | null;
   clinicaId?: string;
@@ -158,6 +160,7 @@ export function ExameFisicoEtapa({
   onChange,
   onSave,
   readOnly = false,
+  naoSalvo = false,
   pacienteId,
   atendimentoId,
   clinicaId
@@ -168,7 +171,7 @@ export function ExameFisicoEtapa({
   }));
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(naoSalvo);
   const [saveError, setSaveError] = useState<string | null>(null);
   // ⭐ Refs para auto-save robusto (evita stale closures)
   const formDataRef = useRef(formData);
@@ -349,7 +352,9 @@ export function ExameFisicoEtapa({
           {!readOnly && onSave &&
           <button
             onClick={handleManualSave}
-            disabled={isSaving || !hasChanges}
+            data-salvar-etapa
+            title="Salvar (Ctrl+S)"
+              disabled={isSaving || !hasChanges}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${hasChanges && !isSaving ? 'bg-teal-600 text-white hover:bg-teal-700 shadow-sm' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
             
               <SaveIcon className="w-4 h-4" />

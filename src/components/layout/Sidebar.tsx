@@ -52,6 +52,8 @@ export type ProntuarioStep =
 'imagens';
 interface SidebarProps {
   currentPage: string;
+  /** Desktop: menu só com ícones (usado durante o atendimento, para dar espaço ao prontuário). */
+  compacto?: boolean;
   onNavigate: (page: string) => void;
   tipoUsuario: TipoUsuario;
   permissoesMenu?: string[];
@@ -219,8 +221,16 @@ export function Sidebar({
   prontuarioStep = 'anamnese',
   onProntuarioStepChange = () => {},
   isMobileOpen = false,
-  onCloseMobile = () => {}
+  onCloseMobile = () => {},
+  compacto = false
 }: SidebarProps) {
+  // Menu recolhido: só ícones no desktop. Passar o mouse (ou o foco) expande
+  // por cima do conteúdo, sem empurrar o prontuário.
+  const [expandidoTemp, setExpandidoTemp] = useState(false);
+  const recolhido = compacto && !expandidoTemp && !isMobileOpen;
+  useEffect(() => {
+    if (!compacto) setExpandidoTemp(false);
+  }, [compacto]);
   const [adminPodeVerPlanos, setAdminPodeVerPlanos] = useState(false);
   const grupoDaPagina = GRUPOS_MENU.find((g) => g.itens.some((i) => i.id === currentPage));
   const [gruposAbertos, setGruposAbertos] = useState<Set<string>>(
@@ -371,6 +381,7 @@ export function Sidebar({
   const handleNavigate = (page: string) => {
     onNavigate(page);
     onCloseMobile();
+    setExpandidoTemp(false);
   };
   return (
     <>
@@ -382,10 +393,15 @@ export function Sidebar({
 
       }
 
+      {/* Espaço reservado do menu recolhido (o menu expandido flutua por cima) */}
+      {compacto && <div className="hidden lg:block w-16 shrink-0" aria-hidden="true" />}
       <aside
+        onMouseEnter={compacto ? () => setExpandidoTemp(true) : undefined}
+        onMouseLeave={compacto ? () => setExpandidoTemp(false) : undefined}
         className={`
-          ${showCalendar ? 'w-80' : 'w-64'} 
-          bg-white border-r border-gray-200 h-full flex flex-col transition-all duration-300 shrink-0
+          ${showCalendar ? 'w-80' : 'w-64'} ${recolhido ? 'lg:w-16' : ''}
+          ${compacto ? 'lg:!absolute lg:!h-full lg:left-0 lg:top-0 lg:!z-40 lg:shadow-lg' : ''}
+          bg-white border-r border-gray-200 h-full flex flex-col transition-all duration-200 shrink-0 overflow-hidden
           
           /* ⭐ Mobile: fixed overlay, slide in/out */
           fixed top-0 left-0 z-50 h-screen
@@ -395,7 +411,7 @@ export function Sidebar({
           lg:static lg:translate-x-0 lg:z-20 lg:h-full
         `}>
         
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+        <div className={`p-6 border-b border-gray-200 flex items-center justify-between ${recolhido ? 'lg:hidden' : ''}`}>
           <div>
             <h1 className="text-2xl font-bold text-teal-600">EasyClin 2.0</h1>
             <p className="text-sm text-gray-500">Gestão Clínica</p>
@@ -439,7 +455,7 @@ export function Sidebar({
         </div>
 
         <nav
-          className="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+          className={`flex-1 ${recolhido ? 'p-4 lg:p-2' : 'p-4'} overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400`}
           style={{
             scrollbarWidth: 'thin',
             scrollbarColor: '#d1d5db transparent'
@@ -453,13 +469,14 @@ export function Sidebar({
                 <button
                   data-menu-id={item.id}
                   onClick={() => handleNavigate(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${isActive ? 'bg-teal-50 text-teal-600 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}>
+                  title={recolhido ? item.label : undefined}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${recolhido ? 'lg:justify-center lg:px-0' : ''} ${isActive ? 'bg-teal-50 text-teal-600 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}>
                   
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
+                  <Icon className="w-5 h-5 shrink-0" />
+                  <span className={`whitespace-nowrap ${recolhido ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </button>
 
-                {item.id === 'agenda' && showCalendar &&
+                {item.id === 'agenda' && showCalendar && !recolhido &&
                 <div className="my-4 space-y-3">
                     {profissionais.length > 0 &&
                   !['medico', 'dentista'].includes(tipoUsuario) &&
@@ -525,20 +542,21 @@ export function Sidebar({
                   <button
                   onClick={() => alternarGrupo(secao.id)}
                   aria-expanded={secaoAberta}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg mb-1 transition-colors ${secaoAtiva ? 'bg-purple-50 text-purple-700 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}>
+                  title={recolhido ? secao.label : undefined}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg mb-1 transition-colors ${recolhido ? 'lg:justify-center lg:px-0' : ''} ${secaoAtiva ? 'bg-purple-50 text-purple-700 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}>
                   
                     <span className="flex items-center gap-3">
-                      <SecaoIcon className="w-5 h-5" />
-                      <span>{secao.label}</span>
+                      <SecaoIcon className="w-5 h-5 shrink-0" />
+                      <span className={`whitespace-nowrap ${recolhido ? 'lg:hidden' : ''}`}>{secao.label}</span>
                     </span>
+                    <span className={recolhido ? 'lg:hidden' : ''}>
                     {secaoAberta ?
                   <ChevronDownIcon className="w-4 h-4" /> :
-
                   <ChevronRightIcon className="w-4 h-4" />
                   }
+                    </span>
                   </button>
-
-                  {secaoAberta &&
+                  {secaoAberta && !recolhido &&
                 <div className="ml-2 border-l-2 border-gray-100 pl-2 space-y-0.5">
                       {grupos.map((grupo) => {
                     const grupoAberto = plano || gruposAbertos.has(grupo.id);

@@ -93,7 +93,7 @@ export function MemedEtapa({
   propProfissionalCompleto?.cpf,
   profissional?.id]
   );
-  const isConfigured = memedConfig?.ativo && memedConfig?.apiKey;
+  const isConfigured = memedConfig?.ativo && (memedConfig?.configurada || memedConfig?.apiKey);
   const hasToken = !!profissional?.token;
   const isReady = isConfigured && hasToken;
   // Verifica se tem os dados mínimos para cadastro

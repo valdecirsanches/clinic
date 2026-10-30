@@ -8,6 +8,24 @@ const { getClinicaDB } = require('../databaseClinica');
 // ==================== CONFIGURAÇÕES GLOBAIS ====================
 
 // GET /api/configuracoes-globais/:chave
+const CAMPO_SECRETO = /(secret|senha|password|token|api_?key|access_?key|private|credencia|chave)/i;
+function ocultarSegredos(valor) {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return valor;
+  const limpo = {};
+  let algumPreenchido = false;
+  let algumSecreto = false;
+  for (const [k, v] of Object.entries(valor)) {
+    if (CAMPO_SECRETO.test(k)) {
+      algumSecreto = true;
+      if (v) algumPreenchido = true;
+      continue;
+    }
+    limpo[k] = v && typeof v === 'object' && !Array.isArray(v) ? ocultarSegredos(v) : v;
+  }
+  if (algumSecreto && limpo.configurada === undefined) limpo.configurada = algumPreenchido;
+  return limpo;
+}
+
 router.get('/globais/:chave', async (req, res) => {
   const { chave } = req.params;
   console.log(`🔍 GET /api/configuracoes-globais/${chave}`);
@@ -16,6 +34,10 @@ router.get('/globais/:chave', async (req, res) => {
     if (!row) return res.status(404).json({ error: 'Configuração não encontrada' });
     let valor = row.valor;
     try {valor = JSON.parse(row.valor);} catch (e) {}
+    // ⭐ Chaves e senhas das integrações só vão para o super admin (tela de
+    // configuração). Os demais recebem `configurada: true/false` no lugar —
+    // antes a secret key da Memed chegava ao navegador de todo usuário.
+    if (!(req.usuario && req.usuario.tipo === 'super_admin')) valor = ocultarSegredos(valor);
     res.json({ ...row, valor });
   } catch (err) {
     console.error('❌ Erro ao buscar configuração:', err);

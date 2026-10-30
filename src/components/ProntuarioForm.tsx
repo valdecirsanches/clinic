@@ -681,7 +681,7 @@ export function ProntuarioForm({
       if (onWarning) onWarning('Selecione um paciente primeiro');
       return;
     }
-    if (!memedConfig || !memedConfig.apiKey) {
+    if (!memedConfig || !(memedConfig.configurada || memedConfig.apiKey)) {
       setValidationError('Configure o Memed em Configurações Globais primeiro');
       if (onWarning)
       onWarning('Configure o Memed em Configurações Globais primeiro');

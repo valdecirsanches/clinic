@@ -69,6 +69,8 @@ interface AtestadoEtapaProps {
   onChange?: (data: AtestadoData) => void;
   onSave?: (data: AtestadoData) => void;
   readOnly?: boolean;
+  /** Há alterações não salvas (rascunho restaurado ou texto de outra aba): Salvar já começa habilitado. */
+  naoSalvo?: boolean;
   // ⭐ NOVO: Profissional do prontuário (para auto-preencher e impressão)
   profissionalDoProntuario?: {
     id?: string;
@@ -151,6 +153,7 @@ export function AtestadoEtapa({
   onChange,
   onSave,
   readOnly = false,
+  naoSalvo = false,
   profissionalDoProntuario,
   onSelectHistorico,
   onNew,
@@ -174,7 +177,7 @@ export function AtestadoEtapa({
   });
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(naoSalvo);
   const [showCidDropdown, setShowCidDropdown] = useState(false);
   const [cidSearch, setCidSearch] = useState('');
   // ⭐ Busca CID-10 na API (igual ao DiagnosticoEtapa) — NÃO usa lista hardcoded.
@@ -883,6 +886,8 @@ export function AtestadoEtapa({
             <Button
               size="sm"
               onClick={handleSave}
+              data-salvar-etapa
+              title="Salvar (Ctrl+S)"
               disabled={isSaving || !hasChanges}
               className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow transition-all">
               

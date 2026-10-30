@@ -5,8 +5,6 @@ import {
   CalendarIcon,
   Edit3Icon,
   LockIcon,
-  PenToolIcon,
-  ShieldCheckIcon,
   AlertCircleIcon,
   RefreshCwIcon,
   PlusIcon,
@@ -14,7 +12,6 @@ import {
   ActivityIcon } from
 'lucide-react';
 import { API_BASE_URL } from '../../../config/api';
-import { SolicitarAssinaturaButton } from '../../SolicitarAssinaturaButton';
 import { useDialog } from '../../../hooks/useDialog';
 import { DialogContainer } from '../../DialogContainer';
 import { Button } from '../../ui/Button';
@@ -52,6 +49,10 @@ interface EvolucaoEtapaProps {
   dataAssinatura?: string;
   pacienteNome?: string;
   pacienteTelefone?: string;
+  /** Texto da nova evolução ainda não adicionada (sobrevive à troca de aba). */
+  textoInicial?: string;
+  /** Avisa a página a cada mudança no texto da NOVA evolução (rascunho). */
+  onTextoChange?: (texto: string) => void;
 }
 export function EvolucaoEtapa({
   onSave,
@@ -64,15 +65,24 @@ export function EvolucaoEtapa({
   consultaAssinada = false,
   dataAssinatura,
   pacienteNome,
-  pacienteTelefone
+  pacienteTelefone,
+  textoInicial = '',
+  onTextoChange
 }: EvolucaoEtapaProps) {
   const [formData, setFormData] = useState<EvolucaoData>({
-    evolucaoAtual: ''
+    evolucaoAtual: textoInicial
   });
   const [refreshKey, setRefreshKey] = useState(0);
   // ⭐ Evolução do histórico aberta no editor. O rascunho da nova evolução é
   //    guardado à parte para nada do que estava sendo escrito ser perdido.
   const [selecionada, setSelecionada] = useState<EvolucaoItem | null>(null);
+  // Rascunho da NOVA evolução vai para a página (troca de aba / rascunho local).
+  // Quando uma evolução do histórico está aberta, o texto em edição é dela.
+  const onTextoChangeRef = React.useRef(onTextoChange);
+  onTextoChangeRef.current = onTextoChange;
+  useEffect(() => {
+    if (!selecionada) onTextoChangeRef.current?.(formData.evolucaoAtual);
+  }, [formData.evolucaoAtual, selecionada]);
   const [rascunho, setRascunho] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   // ⭐ FASE 1: estado de ERRO de salvamento, para o médico nunca ser enganado
@@ -381,6 +391,8 @@ export function EvolucaoEtapa({
               <Button
                 size="sm"
                 onClick={handleSalvarEdicao}
+                data-salvar-etapa
+                title="Salvar (Ctrl+S)"
                 disabled={isSaving || !temTexto}
                 className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow transition-all">
                 
@@ -393,6 +405,8 @@ export function EvolucaoEtapa({
             <Button
               size="sm"
               onClick={handleAdicionarEvolucao}
+              data-salvar-etapa
+              title="Salvar (Ctrl+S)"
               disabled={isSaving || !temTexto}
               className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow transition-all">
               
@@ -410,56 +424,7 @@ export function EvolucaoEtapa({
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 overflow-y-auto lg:overflow-hidden">
         {/* ===== COLUNA PRINCIPAL ===== */}
         <div className="flex-1 min-w-0 flex flex-col min-h-0 gap-3">
-          {/* Status de assinatura */}
-          {atendimentoId &&
-          <div
-            className={`flex-shrink-0 rounded-lg px-4 py-2.5 border flex flex-wrap items-center justify-between gap-2 ${consultaAssinada ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-            
-              <div className="flex items-center gap-2">
-                {consultaAssinada ?
-              <ShieldCheckIcon className="w-4 h-4 text-green-600" /> :
-
-              <PenToolIcon className="w-4 h-4 text-amber-600" />
-              }
-                <span
-                className={`text-sm font-medium ${consultaAssinada ? 'text-green-800' : 'text-amber-800'}`}>
-                
-                  {consultaAssinada ?
-                `Assinatura Confirmada${
-                dataAssinatura ?
-                ` — ${new Date(dataAssinatura).toLocaleDateString(
-                  'pt-BR',
-                  {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  }
-                )}` :
-                ''}` :
-
-                'Pendente de Assinatura'}
-                </span>
-              </div>
-              {!consultaAssinada &&
-            pacienteId &&
-            pacienteNome &&
-            pacienteTelefone &&
-            clinicaId &&
-            <SolicitarAssinaturaButton
-              pacienteId={pacienteId}
-              pacienteNome={pacienteNome}
-              pacienteTelefone={pacienteTelefone}
-              clinicaId={clinicaId}
-              atendimentoId={atendimentoId}
-              variant="outline"
-              size="sm"
-              label="Solicitar Assinatura" />
-
-            }
-            </div>
-          }
+          {/* A situação da assinatura fica na barra de abas do prontuário (uma vez só). */}
 
           {/* Erro persistente com retry */}
           {saveError &&

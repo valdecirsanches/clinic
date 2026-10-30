@@ -68,7 +68,16 @@ import {
   enviarWhatsappMetaApi,
   metaDisponivelApi } from
 '../utils/whatsappMetaApi';
-import { MemedPrescricaoModal } from '../components/MemedPrescricaoModal';
+import { MemedPrescricaoModal, type PrescricaoMemedInfo } from '../components/MemedPrescricaoModal';
+import { useRascunhoProntuario, conteudoVazio } from '../hooks/useRascunhoProntuario';
+import { registrarGuardaSaida } from '../utils/guardaSaida';
+import { abasVisiveis } from '../components/prontuario/ProntuarioTabs';
+import {
+  EstadoSalvamento,
+  AssinaturaChip,
+  AvisoRascunho,
+  nomeEtapa } from
+'../components/prontuario/BarraStatusProntuario';
 import { MemedConfig, MemedProfissional } from '../types/memed';
 import { registrarAuditoria, autorDaSessao } from '../utils/auditLog';
 import { useConfiguracoesGlobais } from '../hooks/useConfiguracoesGlobais';
@@ -348,6 +357,41 @@ export function ProntuarioAtendimentoPage({
   } = useToast();
   // ⭐ Assinatura vem da consulta
   const [consultaAssinada, setConsultaAssinada] = useState(false);
+  // ⭐ RASCUNHO AUTOMÁTICO: o que foi digitado e ainda não salvo fica guardado
+  // neste computador (por clínica + paciente + atendimento) até o servidor
+  // confirmar o salvamento. Ver hooks/useRascunhoProntuario.
+  const pacienteIdRascunho = consulta?.pacienteId || pacienteId || '';
+  const chaveRascunho =
+  clinicaId && pacienteIdRascunho && !consultaAssinada ?
+  `${clinicaId}:${pacienteIdRascunho}:${consultaIdAtual || 'novo'}` :
+  null;
+  const rascunho = useRascunhoProntuario(chaveRascunho);
+  // Prescrição e Evolução guardam o texto dentro da própria etapa; a página
+  // passa a segurá-lo para não sumir ao trocar de aba.
+  const [rascunhoPrescricao, setRascunhoPrescricao] = useState<any>(null);
+  const [rascunhoEvolucao, setRascunhoEvolucao] = useState('');
+  const [versaoRestauro, setVersaoRestauro] = useState(0);
+  useEffect(() => {
+    setRascunhoPrescricao(null);
+    setRascunhoEvolucao('');
+  }, [chaveRascunho]);
+  const naoSalvo = (etapa: string) => {
+    const e = rascunho.estados[etapa]?.estado;
+    return e === 'alterado' || e === 'erro';
+  };
+  const alterarEtapa = rascunho.alterar;
+  // Sair do prontuário pelo menu com algo não salvo: o App pergunta antes.
+  useEffect(
+    () =>
+    registrarGuardaSaida(() =>
+    rascunho.naoSalvas.length ?
+    `Há alterações não salvas em: ${rascunho.naoSalvas.map(nomeEtapa).join(', ')}.\n\n` +
+    'O texto fica guardado como rascunho neste computador e será oferecido quando você reabrir este atendimento.\n\n' +
+    'Sair mesmo assim?' :
+    null
+    ),
+    [rascunho.naoSalvas]
+  );
   const [dataAssinatura, setDataAssinatura] = useState<string | null>(null);
   // IDs das tabelas clínicas separadas
   const [anamneseId, setAnamneseId] = useState<string | null>(null);
@@ -558,23 +602,17 @@ export function ProntuarioAtendimentoPage({
             '⚠️ [Memed] Profissional da consulta não tem Memed configurado. Não usa fallback do logado.'
           );
         }
-        // Carrega config Memed
-        const cached = localStorage.getItem('memed_config');
-        if (cached) {
-          try {
-            setMemedConfig(JSON.parse(cached));
-          } catch {}
-        } else {
-          fetch(`${API_BASE_URL}/api/configuracoes-globais/memed_config`).
-          then((res) => res.json()).
-          then((data) => {
-            if (data?.valor) {
-              setMemedConfig(data.valor);
-              localStorage.setItem('memed_config', JSON.stringify(data.valor));
-            }
-          }).
-          catch(() => {});
-        }
+        // Carrega config Memed — sempre do servidor (sem cópia local: antes a
+        // cópia guardava as chaves da Memed no navegador e nunca atualizava).
+        try {
+          localStorage.removeItem('memed_config');
+        } catch {}
+        fetch(`${API_BASE_URL}/api/configuracoes-globais/memed_config`).
+        then((res) => res.ok ? res.json() : null).
+        then((data) => {
+          if (data?.valor) setMemedConfig(data.valor);
+        }).
+        catch(() => {});
       } catch {}
     };
     init();
@@ -620,15 +658,53 @@ export function ProntuarioAtendimentoPage({
     console.log('✅ [Memed] Abrindo modal...');
     setShowMemedModal(true);
   }, [memedConfig, memedProfissional, paciente]);
+  // ⭐ Receita feita na Memed vai DIRETO para o histórico de prescrições, com
+  // a lista de medicamentos. Antes só um texto era colado no campo e a
+  // receita se perdia se o profissional não clicasse em Salvar.
+  const salvarPrescricaoRef = useRef<((d: any) => Promise<unknown>) | undefined>(undefined);
+  const alterarEtapaRef = useRef<(etapa: string, dados: unknown) => void>(() => {});
   const handleMemedPrescricaoCriada = useCallback(
-    (prescricaoId: string, pdfUrl: string) => {
-      const novaPrescricao = `Prescrição Memed #${prescricaoId}\nPDF: ${pdfUrl}\n\n`;
-      setPrescricoesData((prev) => ({
-        prescricoes: (prev?.prescricoes || '') + novaPrescricao
-      }));
+    async (prescricaoId: string, pdfUrl: string, info?: PrescricaoMemedInfo) => {
       setShowMemedModal(false);
+      const escapar = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
+      const medicamentos = (info?.medicamentos || []).map((m, i) => ({
+        id: `memed-${prescricaoId || Date.now()}-${i}`,
+        nome: m.nome,
+        dosagem: '',
+        quantidade: m.quantidade,
+        unidade: '',
+        posologia: m.posologia,
+        tipo: 'medicamento' as const
+      }));
+      const dados = {
+        controleEspecial: false,
+        data: new Date().toISOString().split('T')[0],
+        descricao:
+        `<p><strong>Receita digital Memed</strong>${prescricaoId ? ` nº ${escapar(prescricaoId)}` : ''}</p>` + (
+        pdfUrl ? `<p><a href="${escapar(pdfUrl)}" target="_blank" rel="noopener noreferrer">Abrir PDF da receita</a></p>` : ''),
+        generico: '',
+        medicamentos
+      };
+      try {
+        if (!salvarPrescricaoRef.current) throw new Error('Prescrição indisponível neste atendimento.');
+        await salvarPrescricaoRef.current(dados);
+        toastSuccess(
+          'Receita da Memed salva',
+          medicamentos.length ?
+          `${medicamentos.length} medicamento(s) registrados no histórico de prescrições.` :
+          'Registrada no histórico de prescrições.'
+        );
+      } catch (err: any) {
+        // Não perde a receita: fica na aba Prescrições como rascunho
+        setRascunhoPrescricao(dados);
+        alterarEtapaRef.current('prescricoes', dados);
+        toastError(
+          'Receita da Memed não foi salva',
+          'Ela está na aba Prescrições. Clique em Salvar para tentar de novo.'
+        );
+      }
     },
-    []
+    [toastSuccess, toastError]
   );
   // ⭐ Busca consulta direto da API quando profissionalId não veio no objeto
   useEffect(() => {
@@ -1624,11 +1700,14 @@ export function ProntuarioAtendimentoPage({
       try {
         // 1. Busca prontuário
         try {
+          // (declarada fora do if: o registro LGPD de acesso, mais abaixo, usa
+          // esta lista — antes dava ReferenceError e o acesso nunca era auditado)
+          let prontuarios: any[] = [];
           const respPront = await fetch(
             `${API_BASE_URL}/api/prontuarios?clinicaId=${clinicaId}&pacienteId=${idPaciente}`
           );
           if (respPront.ok) {
-            const prontuarios = await respPront.json();
+            prontuarios = await respPront.json();
             if (prontuarios.length === 0) {
               // ⭐ FIX: Cria prontuário automaticamente se não existe
               console.log(
@@ -3459,6 +3538,12 @@ export function ProntuarioAtendimentoPage({
             data: consulta?.data || new Date().toISOString().split('T')[0]
           })
         });
+        // Resposta de erro do servidor também é falha (antes passava em silêncio
+        // e o rascunho seria apagado como se tivesse salvo).
+        if (!resp.ok) {
+          const erro = await resp.json().catch(() => ({}));
+          throw new Error(erro.error || 'O servidor não aceitou a anamnese.');
+        }
         if (resp.ok) {
           const result = await resp.json();
           setAnamneseId(result.id);
@@ -3549,6 +3634,12 @@ export function ProntuarioAtendimentoPage({
             data: consulta?.data || new Date().toISOString().split('T')[0]
           })
         });
+        // Resposta de erro do servidor também é falha (antes passava em silêncio
+        // e o rascunho seria apagado como se tivesse salvo).
+        if (!resp.ok) {
+          const erro = await resp.json().catch(() => ({}));
+          throw new Error(erro.error || 'O servidor não aceitou o exame físico.');
+        }
         if (resp.ok) {
           const r = await resp.json();
           setExameFisicoId(r.id);
@@ -3621,6 +3712,12 @@ export function ProntuarioAtendimentoPage({
             data: consulta?.data || new Date().toISOString().split('T')[0]
           })
         });
+        // Resposta de erro do servidor também é falha (antes passava em silêncio
+        // e o rascunho seria apagado como se tivesse salvo).
+        if (!resp.ok) {
+          const erro = await resp.json().catch(() => ({}));
+          throw new Error(erro.error || 'O servidor não aceitou o diagnóstico.');
+        }
         if (resp.ok) {
           const r = await resp.json();
           setDiagnosticoId(r.id);
@@ -3857,7 +3954,7 @@ export function ProntuarioAtendimentoPage({
       }
       setOdontogramaData(data);
       try {
-        await fetch(`${API_BASE_URL}/api/consultas/${cId}`, {
+        const respOdonto = await fetch(`${API_BASE_URL}/api/consultas/${cId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -3867,6 +3964,10 @@ export function ProntuarioAtendimentoPage({
             odontograma: data
           })
         });
+        if (!respOdonto.ok) {
+          const erro = await respOdonto.json().catch(() => ({}));
+          throw new Error(erro.error || 'O servidor não aceitou o odontograma.');
+        }
         console.log('✅ [Odontograma] Salvo na consulta:', cId);
         if (clinicaId) {
           const idPac = consulta?.pacienteId || pacienteId || '';
@@ -3880,8 +3981,10 @@ export function ProntuarioAtendimentoPage({
             detalhes: `Salvou odontograma com ${Object.keys(data).length} dente(s)`
           });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('❌ Erro ao salvar odontograma:', err);
+        toastError('Não foi possível salvar o odontograma', err?.message || 'Verifique a conexão e tente novamente.');
+        throw err;
       }
     },
     [
@@ -3890,7 +3993,8 @@ export function ProntuarioAtendimentoPage({
     clinicaId,
     consulta,
     pacienteId,
-    paciente]
+    paciente,
+    toastError]
 
   );
   // ⭐ Salvar exames solicitados
@@ -4415,8 +4519,8 @@ export function ProntuarioAtendimentoPage({
       const rqesRaw =
       (profissionalDaConsulta as any)?.rqes ||
       (ultimoProfissional as any)?.rqes;
-      if (typeof rqesRaw === 'string') profissionalRqes = JSON.parse(rquesRaw);else
-      if (Array.isArray(rquesRaw)) profissionalRqes = rqesRaw;
+      if (typeof rqesRaw === 'string') profissionalRqes = JSON.parse(rqesRaw);else
+      if (Array.isArray(rqesRaw)) profissionalRqes = rqesRaw;
     } catch {
 
       /* ignore */}
@@ -5211,6 +5315,61 @@ export function ProntuarioAtendimentoPage({
     },
     []
   );
+  // ⭐ Salvamentos com status ("Salvando…/Salvo/Erro") e limpeza do rascunho
+  const { comSalvamento } = rascunho;
+  const salvar = useMemo(
+    () => ({
+      anamnese: comSalvamento('anamnese', handleSaveAnamnese),
+      exame_fisico: comSalvamento('exame_fisico', handleSaveExameFisico),
+      diagnostico: comSalvamento('diagnostico', handleSaveDiagnostico),
+      evolucao: comSalvamento('evolucao', handleSaveEvolucao),
+      exames: comSalvamento('exames', handleSaveExames),
+      prescricoes: comSalvamento('prescricoes', async (d: any) => {
+        const r = await handleSavePrescricoes(d);
+        setRascunhoPrescricao(null);
+        return r;
+      }),
+      relatorios: comSalvamento('relatorios', handleSaveRelatorios),
+      atestado: comSalvamento('atestado', handleSaveAtestado),
+      odontograma: comSalvamento('odontograma', handleSaveOdontograma)
+    }),
+    [
+    comSalvamento,
+    handleSaveAnamnese,
+    handleSaveExameFisico,
+    handleSaveDiagnostico,
+    handleSaveEvolucao,
+    handleSaveExames,
+    handleSavePrescricoes,
+    handleSaveRelatorios,
+    handleSaveAtestado,
+    handleSaveOdontograma]
+
+  );
+  salvarPrescricaoRef.current = consultaAssinada ? undefined : salvar.prescricoes;
+  alterarEtapaRef.current = alterarEtapa;
+  // ⭐ Recupera o texto não salvo encontrado ao abrir o atendimento
+  const restaurarRascunhos = useCallback(() => {
+    const mapa = rascunho.pendentesAoAbrir;
+    Object.entries(mapa).forEach(([etapa, r]) => {
+      const d: any = r.dados;
+      switch (etapa) {
+        case 'anamnese':setAnamneseData(d);break;
+        case 'exame_fisico':setExameFisicoData(d);break;
+        case 'diagnostico':setDiagnosticoData(d);break;
+        case 'exames':setExamesData(d);break;
+        case 'relatorios':setRelatoriosData(d);break;
+        case 'atestado':setAtestadoData(d);break;
+        case 'odontograma':setOdontogramaData(d);break;
+        case 'prescricoes':setRascunhoPrescricao(d);break;
+        case 'evolucao':setRascunhoEvolucao(typeof d === 'string' ? d : '');break;
+      }
+    });
+    rascunho.restaurados(mapa);
+    setVersaoRestauro((v) => v + 1);
+    const primeira = Object.keys(mapa)[0];
+    if (primeira) handleStepChange(primeira as ProntuarioStep);
+  }, [rascunho, handleStepChange]);
   const renderStepContent = () => {
     const idPaciente = consulta?.pacienteId || pacienteId;
     const etapaProps = {
@@ -5306,9 +5465,13 @@ export function ProntuarioAtendimentoPage({
           <AnamneseEtapa
             {...etapaProps}
             data={anamneseData || undefined}
-            onSave={consultaAssinada ? undefined : handleSaveAnamnese}
+            onSave={consultaAssinada ? undefined : salvar.anamnese}
+            naoSalvo={naoSalvo('anamnese')}
             onChange={
-            consultaAssinada ? undefined : (data) => setAnamneseData(data)
+            consultaAssinada ? undefined : (data) => {
+              setAnamneseData(data);
+              alterarEtapa('anamnese', data);
+            }
             } />);
 
 
@@ -5317,9 +5480,13 @@ export function ProntuarioAtendimentoPage({
           <ExameFisicoEtapa
             {...etapaProps}
             data={exameFisicoData || undefined}
-            onSave={consultaAssinada ? undefined : handleSaveExameFisico}
+            onSave={consultaAssinada ? undefined : salvar.exame_fisico}
+            naoSalvo={naoSalvo('exame_fisico')}
             onChange={
-            consultaAssinada ? undefined : (data) => setExameFisicoData(data)
+            consultaAssinada ? undefined : (data) => {
+              setExameFisicoData(data);
+              alterarEtapa('exame_fisico', data);
+            }
             } />);
 
 
@@ -5328,9 +5495,13 @@ export function ProntuarioAtendimentoPage({
           <DiagnosticoEtapa
             {...etapaProps}
             data={diagnosticoData || undefined}
-            onSave={consultaAssinada ? undefined : handleSaveDiagnostico}
+            onSave={consultaAssinada ? undefined : salvar.diagnostico}
+            naoSalvo={naoSalvo('diagnostico')}
             onChange={
-            consultaAssinada ? undefined : (data) => setDiagnosticoData(data)
+            consultaAssinada ? undefined : (data) => {
+              setDiagnosticoData(data);
+              alterarEtapa('diagnostico', data);
+            }
             } />);
 
 
@@ -5338,7 +5509,16 @@ export function ProntuarioAtendimentoPage({
         return (
           <EvolucaoEtapa
             {...etapaProps}
-            onSave={consultaAssinada ? undefined : handleSaveEvolucao}
+            onSave={consultaAssinada ? undefined : salvar.evolucao}
+            textoInicial={rascunhoEvolucao}
+            onTextoChange={
+            consultaAssinada ?
+            undefined :
+            (t) => {
+              setRascunhoEvolucao(t);
+              alterarEtapa('evolucao', t);
+            }
+            }
             onEditarEvolucao={
             consultaAssinada ? undefined : handleEditarEvolucao
             }
@@ -5358,9 +5538,13 @@ export function ProntuarioAtendimentoPage({
             <ExamesEtapa
               {...etapaProps}
               data={examesData || undefined}
-              onSave={consultaAssinada ? undefined : handleSaveExames}
+              onSave={consultaAssinada ? undefined : salvar.exames}
+            naoSalvo={naoSalvo('exames')}
               onChange={
-              consultaAssinada ? undefined : (data) => setExamesData(data)
+              consultaAssinada ? undefined : (data) => {
+              setExamesData(data);
+              alterarEtapa('exames', data);
+            }
               }
               profissionalId={profIdExames}
               historico={examesHistorico}
@@ -5457,9 +5641,17 @@ export function ProntuarioAtendimentoPage({
           return (
             <PrescricoesEtapa
               {...etapaProps}
-              data={dadosPrescricao}
-              onSave={consultaAssinada ? undefined : handleSavePrescricoes}
-              onChange={consultaAssinada ? undefined : () => {}}
+              data={rascunhoPrescricao || dadosPrescricao}
+              naoSalvo={naoSalvo('prescricoes')}
+              onSave={consultaAssinada ? undefined : salvar.prescricoes}
+              onChange={
+              consultaAssinada ?
+              undefined :
+              (d) => {
+                setRascunhoPrescricao(d);
+                alterarEtapa('prescricoes', d);
+              }
+              }
               historico={prescricoesHistorico}
               pacienteNome={paciente?.nome}
               pacienteCpf={(paciente as any)?.cpf}
@@ -5543,9 +5735,13 @@ export function ProntuarioAtendimentoPage({
           <RelatoriosEtapa
             {...etapaProps}
             data={relatoriosData || undefined}
-            onSave={consultaAssinada ? undefined : handleSaveRelatorios}
+            onSave={consultaAssinada ? undefined : salvar.relatorios}
+            naoSalvo={naoSalvo('relatorios')}
             onChange={
-            consultaAssinada ? undefined : (data) => setRelatoriosData(data)
+            consultaAssinada ? undefined : (data) => {
+              setRelatoriosData(data);
+              alterarEtapa('relatorios', data);
+            }
             }
             historico={relatoriosHistorico.filter((r) => r.id !== relatorioId)}
             pacienteNome={paciente?.nome}
@@ -5598,7 +5794,11 @@ export function ProntuarioAtendimentoPage({
               readOnly={consultaAssinada}
               data={atestadoData || undefined}
               historico={atestadosHistorico}
-              onChange={setAtestadoData}
+              onChange={(data) => {
+                setAtestadoData(data);
+                alterarEtapa('atestado', data);
+              }}
+              naoSalvo={naoSalvo('atestado')}
               onNew={() => {
                 // O documento que estava aberto passa a compor o histórico
                 // imediatamente, sem exigir que o usuário recarregue a página.
@@ -5626,7 +5826,7 @@ export function ProntuarioAtendimentoPage({
               onSelectHistorico={(item) => {
                 setAtestadoId(item.id);
               }}
-              onSave={consultaAssinada ? undefined : handleSaveAtestado}
+              onSave={consultaAssinada ? undefined : salvar.atestado}
               medicos={profissionaisDisponiveis.map((p) => ({
                 id: p.id,
                 nome: p.nome,
@@ -5807,9 +6007,12 @@ export function ProntuarioAtendimentoPage({
           <OdontogramaEtapa
             {...etapaProps}
             data={odontogramaData || undefined}
-            onSave={consultaAssinada ? undefined : handleSaveOdontograma}
+            onSave={consultaAssinada ? undefined : salvar.odontograma}
             onChange={
-            consultaAssinada ? undefined : (data) => setOdontogramaData(data)
+            consultaAssinada ? undefined : (data) => {
+              setOdontogramaData(data);
+              alterarEtapa('odontograma', data);
+            }
             }
             pacienteNome={paciente?.nome}
             pacienteDataNascimento={paciente?.dataNascimento}
@@ -5860,7 +6063,8 @@ export function ProntuarioAtendimentoPage({
           <AnamneseEtapa
             {...etapaProps}
             data={anamneseData || undefined}
-            onSave={consultaAssinada ? undefined : handleSaveAnamnese} />);
+            onSave={consultaAssinada ? undefined : salvar.anamnese}
+            naoSalvo={naoSalvo('anamnese')} />);
 
 
     }
@@ -5901,6 +6105,31 @@ export function ProntuarioAtendimentoPage({
   [] :
   ['avaliacao'] as ProntuarioStep[]),
   ...(isContextoOdontologico ? [] : ['odontograma'] as ProntuarioStep[])];
+
+  // ⭐ Atalhos: Ctrl+S salva a etapa aberta; Alt+1…9 troca de aba.
+  const hiddenTabsChave = hiddenTabs.join(',');
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        const botao = document.querySelector<HTMLButtonElement>(
+          '[data-prontuario-conteudo] [data-salvar-etapa]:not([disabled])'
+        );
+        botao?.click();
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.metaKey && /^[1-9]$/.test(e.key)) {
+        const abas = abasVisiveis(hiddenTabsChave ? hiddenTabsChave.split(',') as ProntuarioStep[] : []);
+        const alvo = abas[Number(e.key) - 1];
+        if (alvo) {
+          e.preventDefault();
+          handleStepChange(alvo);
+        }
+      }
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [hiddenTabsChave, handleStepChange]);
 
   return (
     <div
@@ -6106,60 +6335,8 @@ export function ProntuarioAtendimentoPage({
         onTrocarParaPresencial={trocarParaPresencial} />
       
 
-      {/* ⭐ Assinatura do ATENDIMENTO: a solicitação de assinatura pertence ao
-                                                       atendimento aberto (não ao prontuário). Fica visível em todas as abas
-                                                       enquanto houver um atendimento real aberto, exceto na própria aba de
-                                                       histórico/prontuário (resumo), que é apenas leitura. */}
-      {consultaIdReal && currentStep !== 'resumo' &&
-      <div
-        className={`px-6 py-3 border-b flex items-center justify-between flex-wrap gap-3 ${consultaAssinada ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-        
-          <div className="flex items-center gap-2">
-            {consultaAssinada ?
-          <ShieldCheckIcon className="w-4 h-4 text-green-600 flex-shrink-0" /> :
-
-          <PenToolIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
-          }
-            <span
-            className={`text-sm font-medium ${consultaAssinada ? 'text-green-800' : 'text-amber-800'}`}>
-            
-              {consultaAssinada ?
-            `Atendimento assinado${
-            dataAssinatura ?
-            ` em ${new Date(dataAssinatura).toLocaleDateString(
-              'pt-BR',
-              {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              }
-            )}` :
-            ''}` :
-
-            'Atendimento pendente de assinatura do paciente'}
-            </span>
-          </div>
-          {!consultaAssinada &&
-        consultaIdReal &&
-        clinicaId && (
-        paciente?.nome || consulta?.paciente) && (
-        paciente?.celular || paciente?.telefone) &&
-        <SolicitarAssinaturaButton
-          pacienteId={consulta?.pacienteId || pacienteId || ''}
-          pacienteNome={paciente?.nome || consulta?.paciente || ''}
-          pacienteTelefone={paciente?.celular || paciente?.telefone || ''}
-          clinicaId={clinicaId}
-          atendimentoId={consultaIdReal}
-          variant="outline"
-          size="sm"
-          label="Solicitar Assinatura" />
-
-        }
-        </div>
-      }
-
+      {/* ⭐ A assinatura do atendimento agora aparece compacta na barra de abas
+                                                       (AssinaturaChip), em vez de uma faixa larga em todas as telas. */}
       {/* ⭐ FASE 1: aviso informativo quando ainda não há consulta REAL.
                                                                                                  Não é mais um bloqueio: ao salvar a primeira etapa, garantirConsulta()
                                                                                                  cria a consulta automaticamente. Só alertamos que ainda falta um
@@ -6182,10 +6359,38 @@ export function ProntuarioAtendimentoPage({
           </div>
       }
 
+      {dadosCarregados && !consultaAssinada &&
+      <AvisoRascunho
+        rascunhos={rascunho.pendentesAoAbrir}
+        onRestaurar={restaurarRascunhos}
+        onDescartar={() => rascunho.descartar()} />
+      }
+
       <ProntuarioTabs
         activeStep={currentStep}
         onStepChange={handleStepChange}
         hiddenTabs={hiddenTabs}
+        estados={Object.fromEntries(
+          Object.entries(rascunho.estados).map(([k, v]) => [k, v.estado])
+        )}
+        extra={
+        <>
+            <EstadoSalvamento
+            estados={rascunho.estados}
+            onIrPara={(etapa) => handleStepChange(etapa as ProntuarioStep)} />
+          
+            {consultaIdReal && clinicaId &&
+          <AssinaturaChip
+            assinada={consultaAssinada}
+            dataAssinatura={dataAssinatura}
+            pacienteId={consulta?.pacienteId || pacienteId || ''}
+            pacienteNome={paciente?.nome || consulta?.paciente || ''}
+            pacienteTelefone={paciente?.celular || paciente?.telefone || ''}
+            clinicaId={clinicaId}
+            atendimentoId={consultaIdReal} />
+          }
+          </>
+        }
         onProcedimentosClick={
         (procedimentoConfig.valor as any)?.habilitado ?
         () => handleStepChange('procedimento') :
@@ -6201,7 +6406,10 @@ export function ProntuarioAtendimentoPage({
       
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-2 md:p-3">
+        <div
+          key={versaoRestauro}
+          data-prontuario-conteudo
+          className="flex-1 overflow-y-auto p-2 md:p-4">
           {renderStepContent()}
         </div>
       </div>
@@ -6250,21 +6458,17 @@ export function ProntuarioAtendimentoPage({
       <MemedPrescricaoModal
         isOpen={showMemedModal}
         onClose={() => setShowMemedModal(false)}
-        memedConfig={memedConfig}
+        config={memedConfig}
         profissional={memedProfissional}
-        paciente={
-        paciente ?
-        {
-          nome: paciente.nome || '',
-          cpf: (paciente as any).cpf || '',
-          telefone: paciente.telefone || ''
-        } :
-        {
-          nome: '',
-          cpf: '',
-          telefone: ''
-        }
-        }
+        paciente={{
+          ...((paciente || {}) as any),
+          id: paciente?.id || consulta?.pacienteId || pacienteId || '',
+          nome: paciente?.nome || '',
+          cpf: (paciente as any)?.cpf || '',
+          telefone: paciente?.celular || paciente?.telefone || '',
+          email: (paciente as any)?.email || '',
+          dataNascimento: (paciente as any)?.dataNascimento || ''
+        } as any}
         onPrescricaoCriada={handleMemedPrescricaoCriada} />
 
       }

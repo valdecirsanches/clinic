@@ -99,6 +99,30 @@ export function EditorDocumento({
   altura = 'flex',
   alturaLgFlex = false
 }: EditorDocumentoProps) {
+  // Barra enxuta por padrão (negrito, listas, desfazer); "Aa Mais" mostra o
+  // restante. A escolha vale para todos os editores deste computador.
+  const [completo, setCompleto] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('easyclin_editor_completo') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const alternarCompleto = () => {
+    setCompleto((atual) => {
+      const novo = !atual;
+      try {
+        localStorage.setItem('easyclin_editor_completo', novo ? '1' : '0');
+      } catch {/* ignora */}
+      window.dispatchEvent(new CustomEvent('easyclin-editor-completo', { detail: novo }));
+      return novo;
+    });
+  };
+  useEffect(() => {
+    const sincronizar = (e: Event) => setCompleto(Boolean((e as CustomEvent).detail));
+    window.addEventListener('easyclin-editor-completo', sincronizar);
+    return () => window.removeEventListener('easyclin-editor-completo', sincronizar);
+  }, []);
   const areaRef = useRef<HTMLDivElement>(null);
   const ultimoValorRef = useRef<string>('');
   const [vazio, setVazio] = useState(true);
@@ -222,6 +246,8 @@ export function EditorDocumento({
         role="toolbar"
         aria-label="Formatação do documento">
         
+        {completo &&
+        <>
         <select
           aria-label="Estilo do parágrafo"
           disabled={disabled}
@@ -265,6 +291,8 @@ export function EditorDocumento({
         </select>
 
         <span className="w-px h-5 bg-gray-300 mx-0.5" aria-hidden="true" />
+        </>
+        }
 
         <button
           type="button"
@@ -300,6 +328,8 @@ export function EditorDocumento({
           <UnderlineIcon className="w-4 h-4" />
         </button>
 
+        {completo &&
+        <>
         {/* Cor do texto */}
         <div className="flex items-center gap-0.5 pl-1">
           {CORES.map((cor) =>
@@ -315,7 +345,11 @@ export function EditorDocumento({
 
           )}
         </div>
+        </>
+        }
 
+        {completo &&
+        <>
         <span className="w-px h-5 bg-gray-300 mx-0.5" aria-hidden="true" />
 
         <button
@@ -362,6 +396,8 @@ export function EditorDocumento({
           
           <AlignJustifyIcon className="w-4 h-4" />
         </button>
+        </>
+        }
 
         <span className="w-px h-5 bg-gray-300 mx-0.5" aria-hidden="true" />
 
@@ -387,6 +423,7 @@ export function EditorDocumento({
           
           <ListOrderedIcon className="w-4 h-4" />
         </button>
+        {completo &&
         <button
           type="button"
           onClick={inserirTabela}
@@ -397,6 +434,7 @@ export function EditorDocumento({
           
           <TableIcon className="w-4 h-4" />
         </button>
+        }
 
         <span className="w-px h-5 bg-gray-300 mx-0.5" aria-hidden="true" />
 
@@ -420,6 +458,7 @@ export function EditorDocumento({
           
           <RedoIcon className="w-4 h-4" />
         </button>
+        {completo &&
         <button
           type="button"
           onClick={() => executar('removeFormat')}
@@ -429,6 +468,15 @@ export function EditorDocumento({
           className={classeBotao()}>
           
           <EraserIcon className="w-4 h-4" />
+        </button>
+        }
+        <button
+          type="button"
+          onClick={alternarCompleto}
+          title={completo ? 'Mostrar só o essencial' : 'Mais formatação: fonte, tamanho, cores, alinhamento, tabela'}
+          aria-pressed={completo}
+          className="ml-auto h-7 px-2 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
+          {completo ? 'Menos' : 'Aa Mais'}
         </button>
       </div>
 

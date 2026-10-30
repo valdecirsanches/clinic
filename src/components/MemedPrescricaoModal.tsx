@@ -4,6 +4,47 @@ import { Paciente } from '../types';
 import { MemedConfig, MemedProfissional } from '../types/memed';
 import { Loader2Icon, XIcon, AlertCircleIcon, RefreshCwIcon, PillIcon, CheckCircleIcon, WifiOffIcon } from 'lucide-react';
 // ============================================================
+// Resultado da prescrição (evento "prescricaoImpressa")
+// ============================================================
+export interface MedicamentoMemed {
+  nome: string;
+  posologia: string;
+  quantidade: string;
+}
+export interface PrescricaoMemedInfo {
+  id: string;
+  pdfUrl: string;
+  medicamentos: MedicamentoMemed[];
+}
+const URL_SCRIPT_MEMED = {
+  producao: 'https://integrations.memed.com.br/modulos/plataforma.sinapse-prescricao/build/sinapse-prescricao.min.js',
+  sandbox: 'https://sandbox.memed.com.br/modulos/plataforma.sinapse-prescricao/build/sinapse-prescricao.min.js'
+};
+const texto = (v: unknown) => typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '';
+/**
+ * Lê o evento da Memed sem depender de um formato único: versões do módulo
+ * entregam os dados na raiz ou dentro de `prescricao`, com nomes diferentes
+ * para o PDF. Antes, só `data.id` + `data.pdfUrl` era aceito — se faltasse
+ * um deles, a receita feita na Memed nunca chegava ao prontuário.
+ */
+export function lerPrescricaoMemed(dados: any): PrescricaoMemedInfo | null {
+  if (!dados || typeof dados !== 'object') return null;
+  const p = dados.prescricao && typeof dados.prescricao === 'object' ? dados.prescricao : dados;
+  const id = texto(p.id) || texto(dados.id) || texto(p.prescricao_id) || texto(p.uuid);
+  const pdfUrl =
+  texto(dados.pdfUrl) || texto(p.pdfUrl) || texto(p.pdf_url) || texto(p.link_pdf) ||
+  texto(p.url) || texto(p.link) || texto(dados.url) || '';
+  const lista: any[] = Array.isArray(p.medicamentos) ? p.medicamentos : Array.isArray(dados.medicamentos) ? dados.medicamentos : [];
+  const medicamentos = lista.map((m) => ({
+    nome: texto(m?.nome) || texto(m?.descricao) || texto(m?.titulo) || 'Medicamento',
+    posologia: (texto(m?.posologia) || texto(m?.sanitized_posology) || '').replace(/<[^>]*>/g, ''),
+    quantidade: texto(m?.quantidade) || texto(m?.quantity) || ''
+  }));
+  if (!id && !medicamentos.length) return null;
+  return { id, pdfUrl, medicamentos };
+}
+
+// ============================================================
 // SDK Manager — encapsula TODA a interação com o Memed
 // ============================================================
 class MemedSDKManager {
@@ -23,7 +64,7 @@ class MemedSDKManager {
     telefone?: string;
     email?: string;
     id: string;
-  }, onPrescricao: (id: string, pdfUrl: string) => void, onProgress: (step: string, pct: number) => void, onClose: () => void): Promise<void> {
+  }, onPrescricao: (info: PrescricaoMemedInfo) => void, onProgress: (step: string, pct: number) => void, onClose: () => void, ambiente: 'producao' | 'sandbox' = 'producao'): Promise<void> {
     // Validação
     if (!token) throw new Error('Token do profissional ausente. Cadastre em Profissionais Memed.');
     this.onCloseCallback = onClose;
@@ -58,7 +99,7 @@ class MemedSDKManager {
     if (this.isDestroyed) return;
     // 3 — Carrega script
     onProgress('Carregando módulo Memed...', 25);
-    await this.loadScript(token);
+    await this.loadScript(token, ambiente);
     if (this.isDestroyed) return;
     // 4 — Aguarda objetos globais
     onProgress('Conectando ao Memed...', 50);
@@ -69,7 +110,9 @@ class MemedSDKManager {
     try {
       // @ts-ignore
       MdHub.event.add('prescricaoImpressa', (data: any) => {
-        if (data?.id && data?.pdfUrl) onPrescricao(data.id, data.pdfUrl);
+        const info = lerPrescricaoMemed(data);
+        if (info) onPrescricao(info);else
+        console.warn('⚠️ [Memed SDK] prescricaoImpressa sem dados reconhecíveis:', data);
       });
     } catch {
 
@@ -158,13 +201,13 @@ class MemedSDKManager {
       }
     }, 2000);
   }
-  private loadScript(token: string): Promise<void> {
+  private loadScript(token: string, ambiente: 'producao' | 'sandbox'): Promise<void> {
     return new Promise((resolve, reject) => {
       // Remove scripts antigos
       document.querySelectorAll('script[src*="sinapse-prescricao"]').forEach((s) => s.remove());
       document.querySelectorAll('script[src*="plataforma.hub"]').forEach((s) => s.remove());
       this.scriptEl = document.createElement('script');
-      this.scriptEl.src = 'https://integrations.memed.com.br/modulos/plataforma.sinapse-prescricao/build/sinapse-prescricao.min.js';
+      this.scriptEl.src = ambiente === 'sandbox' ? URL_SCRIPT_MEMED.sandbox : URL_SCRIPT_MEMED.producao;
       this.scriptEl.setAttribute('data-token', token);
       this.scriptEl.setAttribute('data-container', this.containerId);
       // ⭐ FIX: type="text/javascript" para que o SDK reconheça como script padrão
@@ -172,8 +215,8 @@ class MemedSDKManager {
       const timeout = setTimeout(() => reject(new Error('Timeout ao carregar script (30s).')), 30000);
       this.scriptEl.onload = () => {
         clearTimeout(timeout);
-        // ⭐ FIX: Aguarda um pouco para o SDK processar internamente
-        setTimeout(() => resolve(), 1000);
+        // waitForGlobals() acompanha a inicialização — sem espera fixa aqui
+        resolve();
       };
       this.scriptEl.onerror = () => {
         clearTimeout(timeout);
@@ -203,8 +246,23 @@ class MemedSDKManager {
         const hasEvent = hasHub && typeof MdHub.event !== 'undefined';
         if (hasSinapse && hasHub && hasModule && hasCommand && hasEvent) {
           console.log(`✅ [Memed SDK] Globals prontos após ${attempts * 100}ms`);
-          // Aguarda o SDK estabilizar internamente (iframes, postMessage handlers)
-          setTimeout(() => resolve(), 2000);
+          // Pronto quando a Memed avisar que o módulo de prescrição iniciou
+          // (core:moduleInit). Se o aviso já passou ou não vier, segue em
+          // 2,5 s — antes eram 2 s fixos SEMPRE, somados a outras esperas.
+          let concluido = false;
+          const concluir = () => {
+            if (concluido) return;
+            concluido = true;
+            resolve();
+          };
+          try {
+            // @ts-ignore
+            MdHub.event.add('core:moduleInit', (modulo: any) => {
+              if (!modulo || modulo.name === 'plataforma.prescricao') concluir();
+            });
+          } catch {
+            /* evento opcional */}
+          setTimeout(concluir, 2500);
         } else if (attempts++ >= maxAttempts) {
           const missing = [];
           if (!hasSinapse) missing.push('MdSinapsePrescricao');
@@ -217,9 +275,8 @@ class MemedSDKManager {
           this.pollTimer = setTimeout(check, 100);
         }
       };
-      // Aguarda um momento antes de começar a verificar,
-      // dando tempo para o script novo criar globals frescos
-      setTimeout(check, 500);
+      // Pequena pausa para o script novo criar os objetos globais
+      setTimeout(check, 100);
     });
   }
   private async setPaciente(p: {
@@ -234,13 +291,15 @@ class MemedSDKManager {
       idExterno: p.cpf || `pac-${p.id}`,
       nome: p.nome
     };
-    if (p.dataNascimento) dados.data_nascimento = p.dataNascimento;
+    if (p.dataNascimento) {
+      // A Memed usa dd/mm/aaaa; o cadastro guarda aaaa-mm-dd
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(p.dataNascimento);
+      dados.data_nascimento = m ? `${m[3]}/${m[2]}/${m[1]}` : p.dataNascimento;
+    }
     if (p.cpf) dados.cpf = p.cpf;
     if (p.telefone) dados.telefone = p.telefone.replace(/\D/g, '');
     if (p.email) dados.email = p.email;
-    // Aguarda SDK estabilizar antes de enviar comando
-    await new Promise((r) => setTimeout(r, 2000));
-    // Tenta até 3 vezes com delay entre tentativas
+    // Tenta até 3 vezes (o módulo já sinalizou que iniciou)
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         console.log(`🔵 [Memed SDK] setPaciente tentativa ${attempt}/3`);
@@ -252,16 +311,14 @@ class MemedSDKManager {
       } catch (err) {
         console.warn(`⚠️ setPaciente tentativa ${attempt} falhou:`, err);
         if (attempt < 3) {
-          await new Promise((r) => setTimeout(r, 1500));
+          await new Promise((r) => setTimeout(r, 800));
         }
       }
     }
     console.warn('⚠️ setPaciente falhou após 3 tentativas, continuando...');
   }
   private async showModule() {
-    // Aguarda SDK estabilizar completamente
-    await new Promise((r) => setTimeout(r, 2000));
-    // Tenta até 3 vezes com delay crescente
+    // Tenta até 3 vezes com espera crescente entre tentativas
     for (let attempt = 1; attempt <= 3; attempt++) {
       if (this.isDestroyed) return;
       try {
@@ -275,7 +332,7 @@ class MemedSDKManager {
         console.warn(`⚠️ showModule tentativa ${attempt} falhou:`, err?.message);
         if (attempt < 3) {
           // Delay crescente entre tentativas
-          const delay = attempt * 2000;
+          const delay = attempt * 800;
           console.log(`🔵 [Memed SDK] Aguardando ${delay}ms antes de tentar novamente...`);
           await new Promise((r) => setTimeout(r, delay));
         } else {
@@ -429,7 +486,8 @@ interface MemedPrescricaoModalProps {
   paciente: Paciente;
   profissional: MemedProfissional;
   config: MemedConfig;
-  onPrescricaoCriada: (prescricaoId: string, pdfUrl: string) => void;
+  /** `info` traz também os medicamentos (para gravar no histórico). */
+  onPrescricaoCriada: (prescricaoId: string, pdfUrl: string, info?: PrescricaoMemedInfo) => void;
   onError?: (message: string) => void;
 }
 export function MemedPrescricaoModal({
@@ -453,6 +511,8 @@ export function MemedPrescricaoModal({
   onPrescricaoCriadaRef.current = onPrescricaoCriada;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const configRef = useRef(config);
+  configRef.current = config;
   const profissionalRef = useRef(profissional);
   profissionalRef.current = profissional;
   const pacienteRef = useRef(paciente);
@@ -496,9 +556,9 @@ export function MemedPrescricaoModal({
         telefone: pac.telefone,
         email: pac.email,
         id: pac.id
-      }, (id, pdfUrl) => {
-        console.log('✅ [Memed Modal] Prescrição criada:', id);
-        onPrescricaoCriadaRef.current(id, pdfUrl);
+      }, (info) => {
+        console.log('✅ [Memed Modal] Prescrição criada:', info.id);
+        onPrescricaoCriadaRef.current(info.id, info.pdfUrl, info);
         sdkRef.current?.cleanup();
         sdkRef.current = null;
         initRef.current = false;
@@ -523,7 +583,8 @@ export function MemedPrescricaoModal({
           type: 'RESET'
         });
         onCloseRef.current();
-      });
+      },
+      configRef.current?.ambiente === 'sandbox' ? 'sandbox' : 'producao');
       console.log('✅ [Memed Modal] SDK pronto!');
       dispatch({
         type: 'READY'

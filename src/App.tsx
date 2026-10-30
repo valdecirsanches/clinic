@@ -76,6 +76,7 @@ import { API_BASE_URL, SERVER_DB_URL, checkApiHealth } from './config/api';
 import { DatabaseUnavailable } from './components/DatabaseUnavailable';
 // ⭐ FIX vazamento de permissão: helper central para checar 'prontuarios'
 import { temPermissao as temPermissaoMenu } from './utils/permissoes';
+import { confirmarSaida } from './utils/guardaSaida';
 const AGENDA_CALENDAR_HORIZON_DAYS = 90;
 const CALENDAR_LOCK_HORIZON_DAYS = 366;
 function consultaEhMarcacaoReal(consulta: Consulta): boolean {
@@ -1378,6 +1379,11 @@ function MainApp() {
   date?: string,
   profissionalId?: string) =>
   {
+    // Saindo do prontuário com algo não salvo: pergunta antes (o texto também
+    // fica guardado como rascunho neste computador).
+    if (currentPage === 'prontuario_atendimento' && page !== 'prontuario_atendimento' && !confirmarSaida()) {
+      return;
+    }
     setCurrentPage(page);
     setSidebarOpen(false); // ⭐ Fecha sidebar no mobile ao navegar
     // ⭐ Se uma data foi passada (ex: vindo da aba Consultas do paciente), posiciona na data
@@ -2202,8 +2208,9 @@ function MainApp() {
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
           
 
-          <div className="flex flex-1 overflow-hidden">
+          <div className="relative flex flex-1 overflow-hidden">
             <Sidebar
+              compacto={currentPage === 'prontuario_atendimento'}
               currentPage={currentPage}
               onNavigate={handleNavigate}
               tipoUsuario={sessao.usuario.tipo}

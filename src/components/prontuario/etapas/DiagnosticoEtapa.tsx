@@ -33,6 +33,8 @@ interface DiagnosticoEtapaProps {
   onChange?: (data: DiagnosticoData) => void;
   onSave?: (data: DiagnosticoData) => void;
   readOnly?: boolean;
+  /** Há alterações não salvas (rascunho restaurado ou texto de outra aba): Salvar já começa habilitado. */
+  naoSalvo?: boolean;
   pacienteId?: string;
   atendimentoId?: string | null;
   clinicaId?: string;
@@ -43,6 +45,7 @@ export function DiagnosticoEtapa({
   onChange,
   onSave,
   readOnly = false,
+  naoSalvo = false,
   pacienteId,
   atendimentoId,
   clinicaId
@@ -54,7 +57,7 @@ export function DiagnosticoEtapa({
   });
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(naoSalvo);
   const [buscaPrincipal, setBuscaPrincipal] = useState('');
   const [buscaOutros, setBuscaOutros] = useState('');
   const [showSugestoesPrincipal, setShowSugestoesPrincipal] = useState(false);
@@ -241,6 +244,8 @@ export function DiagnosticoEtapa({
             {!readOnly && onSave &&
             <Button
               onClick={handleSave}
+              data-salvar-etapa
+              title="Salvar (Ctrl+S)"
               disabled={isSaving || !hasChanges}
               size="sm"
               className={`${hasChanges ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>

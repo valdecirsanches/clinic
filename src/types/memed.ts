@@ -1,10 +1,14 @@
 // Tipos para integração com Memed
 
 export interface MemedConfig {
-  apiKey: string;
-  secretKey: string;
+  /** Só chega ao navegador do super admin (tela de configuração). */
+  apiKey?: string;
+  /** Só chega ao navegador do super admin (tela de configuração). */
+  secretKey?: string;
   ambiente: 'producao' | 'sandbox';
   ativo: boolean;
+  /** Informado pelo servidor: as chaves estão preenchidas. */
+  configurada?: boolean;
 }
 export interface MemedPrescricao {
   id: string;
