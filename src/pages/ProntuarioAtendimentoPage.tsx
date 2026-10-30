@@ -4762,13 +4762,20 @@ export function ProntuarioAtendimentoPage({
   }, [handleStepChange, toastSuccess]);
   // ⭐ Odontograma só faz sentido em contexto odontológico:
   // profissional dentista OU consulta do tipo odontológica.
-  const profTipoResolvido =
-  profissionalDaConsulta?.tipo ||
-  profissionaisDisponiveis.find((p) => p.id === profissionalDaConsulta?.id)?.
-  tipo ||
-  ultimoProfissional?.tipo ||
-  (consulta as any)?.profissionalTipo ||
-  '';
+  // ⭐ FIX: considera primeiro o profissional ATIVO (dentista logado ou
+  // escolhido no cabeçalho). Antes só olhava o profissional gravado na
+  // consulta: ao selecionar um dentista, a aba Odontograma não aparecia.
+  const tipoDe = (id?: string) =>
+  id ? profissionaisDisponiveis.find((p) => p.id === id)?.tipo : undefined;
+  const profTipoResolvido = String(
+    profissionalAtivo?.tipo ||
+    tipoDe(profissionalAtivo?.id) ||
+    profissionalDaConsulta?.tipo ||
+    tipoDe(profissionalDaConsulta?.id) ||
+    ultimoProfissional?.tipo ||
+    (consulta as any)?.profissionalTipo ||
+    ''
+  ).toLowerCase();
   const isContextoOdontologico =
   profTipoResolvido === 'dentista' ||
   profissionalDaConsulta?.especialidade === 'odontologica' ||

@@ -1,27 +1,12 @@
 import React, { useCallback, useEffect, useState, Component } from 'react';
 import { SaveIcon, CheckCircleIcon, ClockIcon, PrinterIcon } from 'lucide-react';
-import { Odontograma } from '../../Odontograma';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { OdontogramaClinico } from '../../odontograma/OdontogramaClinico';
+import { ArcadasSvg } from '../../odontograma/ArcadasSvg';
+import { COR, Denticao, OdontogramaDados, denticaoSugerida, listarAchados, normalizarDente } from '../../odontograma/modelo';
 import { resolverConselho } from '../../../utils/especialidadeHelper';
-interface OdontogramaData {
-  [toothNumber: string]: {
-    status:
-    'saudavel' |
-    'cariado' |
-    'restaurado' |
-    'extraido' |
-    'tratamento_canal' |
-    'protese' |
-    'implante';
-    faces?: {
-      oclusal?: boolean;
-      mesial?: boolean;
-      distal?: boolean;
-      vestibular?: boolean;
-      lingual?: boolean;
-    };
-    observacao?: string;
-  };
-}
+// Formato por dente: ver components/odontograma/modelo.ts
+type OdontogramaData = OdontogramaDados;
 interface OdontogramaEtapaProps {
   data?: OdontogramaData;
   onSave?: (data: OdontogramaData) => Promise<void>;
@@ -42,65 +27,6 @@ interface OdontogramaEtapaProps {
   profissionalEspecialidade?: string;
   profissionalRqes?: any[];
 }
-const STATUS_LABELS: Record<string, string> = {
-  saudavel: 'Saudável',
-  cariado: 'Cariado',
-  restaurado: 'Restaurado',
-  extraido: 'Extraído',
-  tratamento_canal: 'Trat. Canal',
-  protese: 'Prótese',
-  implante: 'Implante'
-};
-const STATUS_COLORS: Record<
-  string,
-  {
-    bg: string;
-    border: string;
-    text: string;
-  }> =
-{
-  saudavel: {
-    bg: '#ffffff',
-    border: '#d1d5db',
-    text: '#374151'
-  },
-  cariado: {
-    bg: '#fee2e2',
-    border: '#f87171',
-    text: '#991b1b'
-  },
-  restaurado: {
-    bg: '#dbeafe',
-    border: '#60a5fa',
-    text: '#1e40af'
-  },
-  extraido: {
-    bg: '#d1d5db',
-    border: '#6b7280',
-    text: '#1f2937'
-  },
-  tratamento_canal: {
-    bg: '#ede9fe',
-    border: '#a78bfa',
-    text: '#5b21b6'
-  },
-  protese: {
-    bg: '#fef3c7',
-    border: '#fbbf24',
-    text: '#92400e'
-  },
-  implante: {
-    bg: '#d1fae5',
-    border: '#34d399',
-    text: '#065f46'
-  }
-};
-const QUADRANTS = {
-  superior_direito: ['18', '17', '16', '15', '14', '13', '12', '11'],
-  superior_esquerdo: ['21', '22', '23', '24', '25', '26', '27', '28'],
-  inferior_esquerdo: ['31', '32', '33', '34', '35', '36', '37', '38'],
-  inferior_direito: ['48', '47', '46', '45', '44', '43', '42', '41']
-};
 export function OdontogramaEtapa({
   data,
   onSave,
@@ -246,119 +172,42 @@ export function OdontogramaEtapa({
     } catch {
 
       /* ignore */}
-    // Build tooth cell HTML
-    const buildToothCell = (toothNum: string) => {
-      const condition = odontogramaData[toothNum];
-      const status = condition?.status || 'saudavel';
-      const colors = STATUS_COLORS[status] || STATUS_COLORS.saudavel;
-      const label = STATUS_LABELS[status] || 'Saudável';
-      const isExtraido = status === 'extraido';
-      return (
-        '<td style="width:42px;text-align:center;padding:4px 2px;vertical-align:top;">' +
-        '<div style="width:38px;height:48px;border:2px solid ' +
-        colors.border +
-        ';border-radius:6px;background:' +
-        colors.bg +
-        ';display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto;position:relative;' + (
-        isExtraido ? 'opacity:0.7;' : '') +
-        '">' +
-        '<span style="font-size:10px;font-weight:700;color:' +
-        colors.text +
-        ';">' +
-        toothNum +
-        '</span>' + (
-        isExtraido ?
-        '<div style="position:absolute;top:50%;left:50%;width:80%;height:2px;background:#6b7280;transform:translate(-50%,-50%) rotate(45deg);"></div><div style="position:absolute;top:50%;left:50%;width:80%;height:2px;background:#6b7280;transform:translate(-50%,-50%) rotate(-45deg);"></div>' :
-        '') + (
-        status !== 'saudavel' && !isExtraido ?
-        '<span style="font-size:7px;color:' +
-        colors.text +
-        ';margin-top:2px;line-height:1;">' +
-        label +
-        '</span>' :
-        '') +
-        '</div>' +
-        '</td>');
-
-    };
-    // Build quadrant row
-    const buildQuadrantRow = (teeth: string[]) =>
-    teeth.map(buildToothCell).join('');
-    // Odontograma HTML table
+    // Odontograma: o MESMO desenho da tela (SVG), em modo somente leitura
+    const numeros = Object.keys(odontogramaData);
+    const temDecido = numeros.some((n) => Number(n[0]) >= 5);
+    const temPermanente = numeros.some((n) => Number(n[0]) <= 4);
+    const denticaoImpressao: Denticao =
+    temDecido && temPermanente ? 'mista' : temDecido ? 'decidua' : temPermanente ? 'permanente' : denticaoSugerida(pacienteDataNascimento);
     const odontogramaHtml =
-    '<div style="margin:16px 0;">' +
-    '<p style="text-align:center;font-size:10px;color:#6b7280;margin-bottom:6px;">Arcada Superior</p>' +
-    '<table style="margin:0 auto;border-collapse:collapse;">' +
-    '<tr>' +
-    buildQuadrantRow(QUADRANTS.superior_direito) +
-    '<td style="width:8px;background:#94a3b8;"></td>' +
-    buildQuadrantRow(QUADRANTS.superior_esquerdo) +
-    '</tr>' +
-    '</table>' +
-    '<div style="width:100%;height:2px;background:#cbd5e1;margin:8px 0;"></div>' +
-    '<table style="margin:0 auto;border-collapse:collapse;">' +
-    '<tr>' +
-    buildQuadrantRow(QUADRANTS.inferior_direito) +
-    '<td style="width:8px;background:#94a3b8;"></td>' +
-    buildQuadrantRow(QUADRANTS.inferior_esquerdo) +
-    '</tr>' +
-    '</table>' +
-    '<p style="text-align:center;font-size:10px;color:#6b7280;margin-top:6px;">Arcada Inferior</p>' +
+    '<div style="margin:12px 0 4px;">' +
+    renderToStaticMarkup(<ArcadasSvg dados={odontogramaData} denticao={denticaoImpressao} />) +
     '</div>';
-    // Legend
     const legendHtml =
-    '<div style="margin-top:16px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;">' +
-    '<p style="font-size:10px;font-weight:700;color:#374151;margin-bottom:8px;">Legenda</p>' +
-    '<div style="display:flex;flex-wrap:wrap;gap:10px;">' +
-    Object.entries(STATUS_LABELS).
-    map(
-      ([key, label]) =>
-      '<div style="display:flex;align-items:center;gap:4px;">' +
-      '<div style="width:14px;height:14px;border:2px solid ' +
-      STATUS_COLORS[key].border +
-      ';border-radius:3px;background:' +
-      STATUS_COLORS[key].bg +
-      ';"></div>' +
-      '<span style="font-size:9px;color:#4b5563;">' +
-      label +
-      '</span>' +
-      '</div>'
-    ).
+    '<div style="display:flex;justify-content:center;gap:18px;margin:6px 0 14px;font-size:9px;color:#64748b;">' +
+    [[COR.tratar, 'A tratar'], [COR.tratado, 'Já tratado'], [COR.selante, 'Preventivo']].
+    map(([cor, nome]) => '<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:2px;background:' + cor + ';display:inline-block;"></span>' + nome + '</span>').
     join('') +
-    '</div>' +
+    '<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:2px;border:1px dashed #94a3b8;display:inline-block;"></span>Ausente</span>' +
     '</div>';
-    // Summary table of altered teeth
-    const alteredTeeth = Object.entries(odontogramaData).
-    filter(([, c]) => c.status !== 'saudavel').
-    sort(([a], [b]) => Number(a) - Number(b));
+    // Achados por dente
+    const achados = listarAchados(odontogramaData);
+    const corGrupo: Record<string, string> = { tratar: COR.tratar, tratado: COR.tratado, preventivo: COR.selante, outro: '#64748b' };
+    const escapar = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
+    const dentesComAchado = Array.from(new Set(achados.map((a) => a.dente)));
     const summaryHtml =
-    alteredTeeth.length > 0 ?
-    '<div style="margin-top:16px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;">' +
-    '<p style="font-size:10px;font-weight:700;color:#374151;margin-bottom:8px;">Resumo — ' +
-    alteredTeeth.length +
-    ' dente(s) com alteração</p>' +
+    dentesComAchado.length > 0 ?
+    '<div style="margin-top:10px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;page-break-inside:avoid;">' +
+    '<p style="font-size:10px;font-weight:700;color:#374151;margin-bottom:8px;">Achados em ' + dentesComAchado.length + ' dente(s)</p>' +
     '<table style="width:100%;border-collapse:collapse;font-size:10px;">' +
-    '<tr style="background:#f8fafc;"><th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e2e8f0;font-weight:600;">Dente</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e2e8f0;font-weight:600;">Condição</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e2e8f0;font-weight:600;">Observação</th></tr>' +
-    alteredTeeth.
-    map(
-      ([tooth, condition]) =>
-      '<tr><td style="padding:3px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">' +
-      tooth +
-      '</td>' +
-      '<td style="padding:3px 8px;border-bottom:1px solid #f1f5f9;">' +
-      '<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:' +
-      STATUS_COLORS[condition.status].bg +
-      ';border:1px solid ' +
-      STATUS_COLORS[condition.status].border +
-      ';color:' +
-      STATUS_COLORS[condition.status].text +
-      ';font-size:9px;font-weight:600;">' + (
-      STATUS_LABELS[condition.status] || condition.status) +
-      '</span>' +
-      '</td>' +
-      '<td style="padding:3px 8px;border-bottom:1px solid #f1f5f9;color:#6b7280;">' + (
-      condition.observacao || '—') +
-      '</td></tr>'
+    '<tr style="background:#f8fafc;"><th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e2e8f0;font-weight:600;width:50px;">Dente</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e2e8f0;font-weight:600;">Condição</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e2e8f0;font-weight:600;">Observação</th></tr>' +
+    dentesComAchado.
+    map((dente) =>
+    '<tr><td style="padding:3px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;vertical-align:top;">' + dente + '</td>' +
+    '<td style="padding:3px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;">' +
+    achados.filter((a) => a.dente === dente).
+    map((a) => '<span style="display:inline-block;margin:0 6px 2px 0;color:' + corGrupo[a.grupo] + ';font-weight:600;">' + escapar(a.texto) + '</span>').join('') +
+    '</td>' +
+    '<td style="padding:3px 8px;border-bottom:1px solid #f1f5f9;color:#6b7280;vertical-align:top;">' + escapar(normalizarDente(odontogramaData[dente]).observacao || '—') + '</td></tr>'
     ).
     join('') +
     '</table>' +
@@ -488,11 +337,16 @@ export function OdontogramaEtapa({
   profissionalRqes]
   );
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 pb-4 -mx-6 px-6 pt-1">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-light text-teal-700">🦷 Odontograma</h2>
+      <div className="bg-white border-b border-gray-100 pb-3 pt-1">
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h2 className="text-xl font-medium text-teal-700">Odontograma</h2>
+            {!readOnly &&
+            <p className="text-xs text-gray-500 mt-0.5">As marcações são salvas sozinhas poucos segundos depois de feitas.</p>
+            }
+          </div>
 
           <div className="flex items-center gap-3">
             {lastSaved &&
@@ -526,6 +380,8 @@ export function OdontogramaEtapa({
             {!readOnly && hasChanges && !isSaving && onSave &&
             <button
               onClick={handleSave}
+              data-salvar-etapa
+              title="Salvar (Ctrl+S)"
               className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2">
               
                 <SaveIcon className="w-4 h-4" />
@@ -536,38 +392,11 @@ export function OdontogramaEtapa({
         </div>
       </div>
 
-      {/* Odontograma Component */}
-      <Odontograma
+      <OdontogramaClinico
         value={odontogramaData}
         onChange={handleChange}
-        disabled={readOnly} />
-      
-
-      {/* Resumo dos dentes alterados */}
-      {Object.keys(odontogramaData).length > 0 &&
-      <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-          <h4 className="text-sm font-semibold text-teal-800 mb-2">
-            Resumo — {Object.keys(odontogramaData).length} dente(s)
-            registrado(s)
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(odontogramaData).
-          sort(([a], [b]) => Number(a) - Number(b)).
-          map(([tooth, condition]) =>
-          <span
-            key={tooth}
-            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-white border border-teal-200 text-teal-700">
-            
-                  <span className="font-bold">{tooth}</span>
-                  <span className="text-teal-500">—</span>
-                  <span className="capitalize">
-                    {condition.status.replace('_', ' ')}
-                  </span>
-                </span>
-          )}
-          </div>
-        </div>
-      }
+        readOnly={readOnly}
+        pacienteDataNascimento={pacienteDataNascimento} />
     </div>);
 
 }
