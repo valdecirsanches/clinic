@@ -357,6 +357,54 @@ router.get('/datas-com-consultas', (req, res) => {
 //   pacienteId - Filtrar por paciente
 //   limit      - Máximo de registros (default: 15000, max: 50000)
 //   excludePlaceholders - boolean para excluir consultas marcador de placeholder
+// GET /api/consultas/odontograma-atual?clinicaId&pacienteId[&consultaId]
+// Odontograma do PACIENTE: devolve o desta consulta (se houver) e o salvo mais
+// recentemente em qualquer consulta dele. A ordem usa o momento do salvamento;
+// registros antigos, sem essa data, usam a data e o horário da consulta.
+router.get('/odontograma-atual', (req, res) => {
+  const { clinicaId, pacienteId, consultaId } = req.query;
+  if (!clinicaId || !pacienteId) {
+    return res.status(400).json({ error: 'clinicaId e pacienteId são obrigatórios' });
+  }
+  const db = getClinicaDB(clinicaId);
+  const colunas = `id, data, horario, profissional, odontograma, odontogramaAtualizadoEm,
+    odontogramaAtualizadoPor, (assinaturaPaciente IS NOT NULL AND assinaturaPaciente <> '') AS assinada`;
+  const formatar = (row) => {
+    if (!row) return null;
+    let dados = null;
+    try {dados = JSON.parse(row.odontograma);} catch {dados = null;}
+    if (!dados || typeof dados !== 'object' || !Object.keys(dados).length) return null;
+    return {
+      consultaId: row.id,
+      data: row.data,
+      horario: row.horario,
+      profissional: row.profissional || null,
+      atualizadoEm: row.odontogramaAtualizadoEm || null,
+      atualizadoPor: row.odontogramaAtualizadoPor || null,
+      assinada: Boolean(row.assinada),
+      odontograma: dados
+    };
+  };
+  db.get(
+    `SELECT ${colunas} FROM consultas
+     WHERE pacienteId = ? AND odontograma IS NOT NULL AND odontograma NOT IN ('', '{}', 'null')
+     ORDER BY COALESCE(odontogramaAtualizadoEm, CONCAT(data, 'T', horario)) DESC
+     LIMIT 1`,
+    [pacienteId],
+    (err, maisRecente) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!consultaId) return res.json({ atual: null, maisRecente: formatar(maisRecente) });
+      db.get(`SELECT ${colunas} FROM consultas WHERE id = ? AND pacienteId = ?`, [consultaId, pacienteId], (err2, atual) => {
+        if (err2) return res.status(500).json({ error: err2.message });
+        res.json({
+          atual: atual ? { ...(formatar(atual) || { consultaId: atual.id, odontograma: null }), assinada: Boolean(atual.assinada) } : null,
+          maisRecente: formatar(maisRecente)
+        });
+      });
+    }
+  );
+});
+
 router.get('/', (req, res) => {
   const { clinicaId, dataInicio, dataFim, data, profissionalId, pacienteId, limit, excludePlaceholders } = req.query;
 
@@ -552,6 +600,19 @@ router.put('/:id', (req, res) => {
           validUpdates[key] = updates[key];
         }
       }
+    });
+
+    // Registra quando e por quem o odontograma foi salvo (definido pelo
+    // servidor; o que vier do navegador nesses campos é ignorado).
+    delete validUpdates.odontogramaAtualizadoEm;
+    delete validUpdates.odontogramaAtualizadoPor;
+    if (validUpdates.odontograma !== undefined) {
+      validUpdates.odontogramaAtualizadoEm = new Date().toISOString();
+      validUpdates.odontogramaAtualizadoPor = req.usuario?.nome || req.usuario?.email || null;
+    }
+    // Só nomes de coluna válidos entram no SQL
+    Object.keys(validUpdates).forEach((key) => {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) delete validUpdates[key];
     });
 
     const setClause = Object.keys(validUpdates).map((key) => `${key} = ?`).join(', ');

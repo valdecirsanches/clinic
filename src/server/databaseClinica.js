@@ -241,6 +241,8 @@ async function createClinicaTables(poolPromise, dbName, clinicaId) {
       procedimentoNome VARCHAR(255),
       whatsappTelefone VARCHAR(30),
       odontograma LONGTEXT,
+      odontogramaAtualizadoEm VARCHAR(50),
+      odontogramaAtualizadoPor VARCHAR(255),
       assinaturaPaciente LONGTEXT,
       dataAssinatura VARCHAR(50),
       horaChegada VARCHAR(50),

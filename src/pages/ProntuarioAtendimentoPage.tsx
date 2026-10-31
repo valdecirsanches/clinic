@@ -425,46 +425,36 @@ export function ProntuarioAtendimentoPage({
   //    para o dentista continuar de onde parou.
   const [odontogramaOrigem, setOdontogramaOrigem] = useState<string | null>(null);
   const odontogramaEditadoRef = useRef(false);
-  const lerOdontograma = (raw: unknown): Record<string, any> | null => {
-    if (!raw) return null;
-    try {
-      const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      return v && typeof v === 'object' && Object.keys(v).length > 0 ? v as Record<string, any> : null;
-    } catch {
-      return null;
-    }
-  };
   const idPacienteOdontograma = consulta?.pacienteId || pacienteId || '';
   const idConsultaOdontograma = consulta?.id || consultaIdProp || '';
   useEffect(() => {
     if (!clinicaId || !idPacienteOdontograma) return;
     let cancelado = false;
     odontogramaEditadoRef.current = false;
-    fetch(`${API_BASE_URL}/api/consultas?clinicaId=${clinicaId}&pacienteId=${idPacienteOdontograma}&limit=150`).
-    then((r) => r.ok ? r.json() : []).
-    then((lista: any[]) => {
-      if (cancelado || odontogramaEditadoRef.current || !Array.isArray(lista)) return;
-      const atual = lista.find((c) => c.id === idConsultaOdontograma);
-      const doAtual = lerOdontograma(atual?.odontograma);
+    const qs = new URLSearchParams({ clinicaId, pacienteId: idPacienteOdontograma });
+    if (idConsultaOdontograma) qs.set('consultaId', idConsultaOdontograma);
+    fetch(`${API_BASE_URL}/api/consultas/odontograma-atual?${qs}`).
+    then((r) => r.ok ? r.json() : null).
+    then((resp: {atual: any;maisRecente: any;} | null) => {
+      if (cancelado || odontogramaEditadoRef.current || !resp) return;
+      const { atual, maisRecente } = resp;
       // Atendimento assinado é registro histórico: mostra o dele, como ficou.
-      if (doAtual && atual?.assinaturaPaciente) {
-        setOdontogramaData(doAtual);
+      if (atual?.assinada && atual.odontograma) {
+        setOdontogramaData(atual.odontograma);
         setOdontogramaOrigem(null);
-        return;
-      }
-      const quando = (c: any) => `${c.data || ''} ${c.horario || ''}`;
-      const maisRecente = lista.
-      filter((c) => lerOdontograma(c.odontograma)).
-      sort((a, b) => quando(b).localeCompare(quando(a)))[0];
-      if (!maisRecente) {
+      } else if (!maisRecente) {
         setOdontogramaData(null);
         setOdontogramaOrigem(null);
-      } else if (maisRecente.id === idConsultaOdontograma) {
-        setOdontogramaData(doAtual);
+      } else if (maisRecente.consultaId === idConsultaOdontograma) {
+        setOdontogramaData(maisRecente.odontograma);
         setOdontogramaOrigem(null);
       } else {
-        setOdontogramaData(lerOdontograma(maisRecente.odontograma));
-        setOdontogramaOrigem(maisRecente.data || '');
+        setOdontogramaData(maisRecente.odontograma);
+        const quando = maisRecente.atualizadoEm ?
+        new Date(maisRecente.atualizadoEm).toLocaleDateString('pt-BR') :
+        String(maisRecente.data || '').split('-').reverse().join('/');
+        const quem = maisRecente.atualizadoPor || maisRecente.profissional || '';
+        setOdontogramaOrigem([quando, quem].filter(Boolean).join(', por '));
       }
     }).
     catch(() => {/* mantém o que já está na tela */});

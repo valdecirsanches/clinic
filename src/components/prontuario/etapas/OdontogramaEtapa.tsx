@@ -26,7 +26,7 @@ interface OdontogramaEtapaProps {
   profissionalCabecalho?: string;
   profissionalEspecialidade?: string;
   profissionalRqes?: any[];
-  /** Data do atendimento de onde o odontograma foi trazido (quando este ainda não tem). */
+  /** De onde o odontograma foi trazido, ex.: "30/10/2026, por Dr. Carlos". */
   trazidoDe?: string | null;
   /** Atendimento assinado: somente leitura. */
   assinado?: boolean;
@@ -439,7 +439,7 @@ export function OdontogramaEtapa({
       <div className="flex items-start gap-2.5 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-sm text-sky-900">
           <HistoryIcon className="w-4 h-4 mt-0.5 shrink-0 text-sky-600" />
           <p>
-            Odontograma do último atendimento{trazidoDe ? ` (${trazidoDe.split('-').reverse().join('/')})` : ''}. Continue marcando: as mudanças ficam salvas neste atendimento.
+            Odontograma do último atendimento{trazidoDe ? ` (${trazidoDe})` : ''}. Continue marcando: as mudanças ficam salvas neste atendimento.
           </p>
         </div> :
       null}

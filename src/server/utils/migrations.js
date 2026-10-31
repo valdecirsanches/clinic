@@ -140,6 +140,9 @@ const EXPECTED_SCHEMA = {
   { name: 'procedimentoNome', type: 'VARCHAR(255)' },
   { name: 'whatsappTelefone', type: 'VARCHAR(30)' },
   { name: 'odontograma', type: 'LONGTEXT' },
+  // ⭐ Quando e por quem o odontograma desta consulta foi salvo
+  { name: 'odontogramaAtualizadoEm', type: 'VARCHAR(50)' },
+  { name: 'odontogramaAtualizadoPor', type: 'VARCHAR(255)' },
   { name: 'assinaturaPaciente', type: 'LONGTEXT' },
   { name: 'dataAssinatura', type: 'VARCHAR(50)' },
   // ⭐ Fila de Atendimento
