@@ -30,6 +30,8 @@ interface OdontogramaEtapaProps {
   trazidoDe?: string | null;
   /** Atendimento assinado: somente leitura. */
   assinado?: boolean;
+  /** Quando há algo impedindo o salvamento (ex.: falta o profissional). */
+  avisoSalvar?: string | null;
 }
 export function OdontogramaEtapa({
   data,
@@ -50,7 +52,8 @@ export function OdontogramaEtapa({
   profissionalEspecialidade,
   profissionalRqes,
   trazidoDe,
-  assinado
+  assinado,
+  avisoSalvar
 }: OdontogramaEtapaProps) {
   const [odontogramaData, setOdontogramaData] = useState<OdontogramaData>(
     data || {}
@@ -64,6 +67,8 @@ export function OdontogramaEtapa({
   const pendenteRef = useRef(false);
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
+  const avisoRef = useRef(avisoSalvar);
+  avisoRef.current = avisoSalvar;
   useEffect(() => {
     if (data && !pendenteRef.current) {
       setOdontogramaData(data);
@@ -100,17 +105,21 @@ export function OdontogramaEtapa({
       setIsSaving(false);
     }
   }, [onSave]);
+  // Resolvido o impedimento (ex.: profissional escolhido), volta a salvar sozinho.
   useEffect(() => {
-    if (!hasChanges || readOnly || !onSave || erroSalvar) return;
+    if (!avisoSalvar) setErroSalvar(false);
+  }, [avisoSalvar]);
+  useEffect(() => {
+    if (!hasChanges || readOnly || !onSave || erroSalvar || avisoSalvar) return;
     const timer = setTimeout(() => {
       handleSave();
     }, 1500);
     return () => clearTimeout(timer);
-  }, [odontogramaData, hasChanges, readOnly, onSave, handleSave, erroSalvar]);
+  }, [odontogramaData, hasChanges, readOnly, onSave, handleSave, erroSalvar, avisoSalvar]);
   // Ao sair da aba (ou fechar o atendimento) com marcações não salvas, salva
   // na hora. Antes o temporizador era cancelado e as marcações se perdiam.
   useEffect(() => () => {
-    if (pendenteRef.current && onSaveRef.current) {
+    if (pendenteRef.current && onSaveRef.current && !avisoRef.current) {
       onSaveRef.current(ultimoRef.current).catch(() => {/* o aviso de erro já aparece */});
     }
   }, []);
@@ -435,7 +444,14 @@ export function OdontogramaEtapa({
         </div> :
       null}
 
-      {erroSalvar &&
+      {avisoSalvar && !readOnly &&
+      <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900" role="status">
+          <AlertCircleIcon className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <p>{avisoSalvar}</p>
+        </div>
+      }
+
+      {erroSalvar && !avisoSalvar &&
       <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-800" role="alert">
           <span className="flex items-center gap-2"><AlertCircleIcon className="w-4 h-4" />As últimas marcações não foram salvas.</span>
           <button type="button" onClick={handleSave} className="font-medium underline hover:no-underline">Tentar de novo</button>

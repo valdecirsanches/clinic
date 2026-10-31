@@ -888,7 +888,9 @@ export function ProntuarioAtendimentoPage({
             pacienteId: idPaciente,
             pacienteNome: paciente?.nome || consulta?.paciente || '',
             tipo: consulta?.tipo || (
-            String(usuarioLogado?.tipo || '').toLowerCase() === 'dentista' ? 'odontologica' : 'medica'),
+            String(usuarioLogado?.tipo || '').toLowerCase() === 'dentista' ||
+            String(profissionaisDisponiveis.find((p) => p.id === prof?.profissionalId)?.tipo || '').toLowerCase() === 'dentista' ?
+            'odontologica' : 'medica'),
             data: hoje,
             horario: agora,
             duracao: 30,
@@ -941,7 +943,7 @@ export function ProntuarioAtendimentoPage({
       // Libera o guard — se deu certo, consultaIdReal já estará setado no próximo render.
       criandoConsultaRef.current = null;
     }
-  }, [consultaIdReal, clinicaId, pacienteId, consulta, paciente, usuarioLogado]);
+  }, [consultaIdReal, clinicaId, pacienteId, consulta, paciente, usuarioLogado, profissionaisDisponiveis]);
   // ⭐ NOVO: Handler para quando o atendente seleciona um profissional no select
   const handleSelecionarProfissional = useCallback(
     async (profissionalId: string) => {
@@ -4810,6 +4812,7 @@ export function ProntuarioAtendimentoPage({
     ''
   ).toLowerCase();
   const isContextoOdontologico =
+  tipoUsuarioNorm === 'super_admin' ||
   profTipoResolvido === 'dentista' ||
   profissionalDaConsulta?.especialidade === 'odontologica' ||
   consulta?.tipo === 'odontologica';
@@ -5520,6 +5523,14 @@ export function ProntuarioAtendimentoPage({
         return (
           <OdontogramaEtapa
             {...etapaProps}
+            // Super admin também edita o odontograma (as demais etapas seguem
+            // somente leitura para papéis administrativos).
+            readOnly={consultaAssinada || usuarioSomenteVisualiza && tipoUsuarioNorm !== 'super_admin'}
+            avisoSalvar={
+            !consultaAssinada && !profissionalAtivo?.nome?.trim() ?
+            'Escolha o profissional responsável no topo da página para salvar as marcações. Elas ficam guardadas até lá.' :
+            null
+            }
             data={odontogramaData || undefined}
             onSave={consultaAssinada ? undefined : salvar.odontograma}
             onChange={
