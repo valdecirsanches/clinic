@@ -418,24 +418,60 @@ export function ProntuarioAtendimentoPage({
     string,
     any> |
   null>(null);
-  // ⭐ Carrega odontograma da consulta (campo odontograma é JSON string)
-  useEffect(() => {
-    if (!consulta) return;
-    const raw = (consulta as any).odontograma;
-    if (!raw) return;
+  // ⭐ Odontograma é do PACIENTE, não de um atendimento só. Ao abrir:
+  // 1) usa o do atendimento aberto, lido do servidor (a cópia da fila/agenda
+  //    pode estar desatualizada depois de um salvamento);
+  // 2) se este atendimento ainda não tem, traz o mais recente do paciente,
+  //    para o dentista continuar de onde parou.
+  const [odontogramaOrigem, setOdontogramaOrigem] = useState<string | null>(null);
+  const odontogramaEditadoRef = useRef(false);
+  const lerOdontograma = (raw: unknown): Record<string, any> | null => {
+    if (!raw) return null;
     try {
-      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      if (
-      parsed &&
-      typeof parsed === 'object' &&
-      Object.keys(parsed).length > 0)
-      {
-        setOdontogramaData(parsed);
-      }
+      const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return v && typeof v === 'object' && Object.keys(v).length > 0 ? v as Record<string, any> : null;
     } catch {
-
-      // ignore parse errors
-    }}, [consulta]);
+      return null;
+    }
+  };
+  const idPacienteOdontograma = consulta?.pacienteId || pacienteId || '';
+  const idConsultaOdontograma = consulta?.id || consultaIdProp || '';
+  useEffect(() => {
+    if (!clinicaId || !idPacienteOdontograma) return;
+    let cancelado = false;
+    odontogramaEditadoRef.current = false;
+    fetch(`${API_BASE_URL}/api/consultas?clinicaId=${clinicaId}&pacienteId=${idPacienteOdontograma}&limit=150`).
+    then((r) => r.ok ? r.json() : []).
+    then((lista: any[]) => {
+      if (cancelado || odontogramaEditadoRef.current || !Array.isArray(lista)) return;
+      const atual = lista.find((c) => c.id === idConsultaOdontograma);
+      const doAtual = lerOdontograma(atual?.odontograma);
+      // Atendimento assinado é registro histórico: mostra o dele, como ficou.
+      if (doAtual && atual?.assinaturaPaciente) {
+        setOdontogramaData(doAtual);
+        setOdontogramaOrigem(null);
+        return;
+      }
+      const quando = (c: any) => `${c.data || ''} ${c.horario || ''}`;
+      const maisRecente = lista.
+      filter((c) => lerOdontograma(c.odontograma)).
+      sort((a, b) => quando(b).localeCompare(quando(a)))[0];
+      if (!maisRecente) {
+        setOdontogramaData(null);
+        setOdontogramaOrigem(null);
+      } else if (maisRecente.id === idConsultaOdontograma) {
+        setOdontogramaData(doAtual);
+        setOdontogramaOrigem(null);
+      } else {
+        setOdontogramaData(lerOdontograma(maisRecente.odontograma));
+        setOdontogramaOrigem(maisRecente.data || '');
+      }
+    }).
+    catch(() => {/* mantém o que já está na tela */});
+    return () => {
+      cancelado = true;
+    };
+  }, [clinicaId, idPacienteOdontograma, idConsultaOdontograma]);
   const [resumoRefreshKey, setResumoRefreshKey] = useState(0);
   // ⭐ NOVO: Dados do profissional da consulta (para impressão correta do header)
   const [profissionalDaConsulta, setProfissionalDaConsulta] = useState<{
@@ -836,8 +872,10 @@ export function ProntuarioAtendimentoPage({
     // Atestados podem ser emitidos por um usuário autorizado que não é o médico
     // logado; nesse caso, a página passa o profissional responsável do documento.
     const prof = profissionalAlternativo || resolverProfissionalParaSaveRef.current?.();
-    const hoje = new Date().toISOString().split('T')[0];
-    const agora = new Date().toTimeString().slice(0, 5);
+    // Data LOCAL (toISOString usa UTC: depois das 21h no Brasil virava o dia seguinte)
+    const agoraData = new Date();
+    const hoje = `${agoraData.getFullYear()}-${String(agoraData.getMonth() + 1).padStart(2, '0')}-${String(agoraData.getDate()).padStart(2, '0')}`;
+    const agora = agoraData.toTimeString().slice(0, 5);
     const criar = (async (): Promise<string | null> => {
       try {
         const resp = await fetch(`${API_BASE_URL}/api/consultas`, {
@@ -849,7 +887,8 @@ export function ProntuarioAtendimentoPage({
             clinicaId,
             pacienteId: idPaciente,
             pacienteNome: paciente?.nome || consulta?.paciente || '',
-            tipo: consulta?.tipo || 'medica',
+            tipo: consulta?.tipo || (
+            String(usuarioLogado?.tipo || '').toLowerCase() === 'dentista' ? 'odontologica' : 'medica'),
             data: hoje,
             horario: agora,
             duracao: 30,
@@ -902,7 +941,7 @@ export function ProntuarioAtendimentoPage({
       // Libera o guard — se deu certo, consultaIdReal já estará setado no próximo render.
       criandoConsultaRef.current = null;
     }
-  }, [consultaIdReal, clinicaId, pacienteId, consulta, paciente]);
+  }, [consultaIdReal, clinicaId, pacienteId, consulta, paciente, usuarioLogado]);
   // ⭐ NOVO: Handler para quando o atendente seleciona um profissional no select
   const handleSelecionarProfissional = useCallback(
     async (profissionalId: string) => {
@@ -3780,22 +3819,15 @@ export function ProntuarioAtendimentoPage({
     },
     [clinicaId, consulta, pacienteId, paciente, toastSuccess, toastError]
   );
-  // ⭐ Salvar odontograma — direto na consulta (campo odontograma LONGTEXT)
+  // ⭐ Salvar odontograma — direto na consulta (campo odontograma LONGTEXT).
+  // Sem atendimento aberto (ex.: prontuário aberto pela tela Pacientes), cria a
+  // consulta na hora, como as outras etapas. Antes saía sem salvar e sem avisar.
   const handleSaveOdontograma = useCallback(
     async (data: Record<string, any>) => {
       if (consultaAssinada) return;
-      const cId = consultaIdAtual;
-      if (!cId || !clinicaId) {
-        console.error(
-          '❌ [Odontograma] Não pode salvar: consultaId=',
-          cId,
-          'clinicaId=',
-          clinicaId
-        );
-        return;
-      }
       setOdontogramaData(data);
       try {
+        const { consultaId: cId } = await prepararSave('odontograma');
         const respOdonto = await fetch(`${API_BASE_URL}/api/consultas/${cId}`, {
           method: 'PUT',
           headers: {
@@ -3810,6 +3842,7 @@ export function ProntuarioAtendimentoPage({
           const erro = await respOdonto.json().catch(() => ({}));
           throw new Error(erro.error || 'O servidor não aceitou o odontograma.');
         }
+        setOdontogramaOrigem(null);
         console.log('✅ [Odontograma] Salvo na consulta:', cId);
         if (clinicaId) {
           const idPac = consulta?.pacienteId || pacienteId || '';
@@ -3831,7 +3864,7 @@ export function ProntuarioAtendimentoPage({
     },
     [
     consultaAssinada,
-    consultaIdAtual,
+    prepararSave,
     clinicaId,
     consulta,
     pacienteId,
@@ -4841,7 +4874,7 @@ export function ProntuarioAtendimentoPage({
         case 'exames':setExamesData(d);break;
         case 'relatorios':setRelatoriosData(d);break;
         case 'atestado':setAtestadoData(d);break;
-        case 'odontograma':setOdontogramaData(d);break;
+        case 'odontograma':odontogramaEditadoRef.current = true;setOdontogramaData(d);break;
         case 'prescricoes':setRascunhoPrescricao(d);break;
         case 'evolucao':setRascunhoEvolucao(typeof d === 'string' ? d : '');break;
       }
@@ -5491,10 +5524,13 @@ export function ProntuarioAtendimentoPage({
             onSave={consultaAssinada ? undefined : salvar.odontograma}
             onChange={
             consultaAssinada ? undefined : (data) => {
+              odontogramaEditadoRef.current = true;
               setOdontogramaData(data);
               alterarEtapa('odontograma', data);
             }
             }
+            trazidoDe={odontogramaOrigem}
+            assinado={consultaAssinada}
             pacienteNome={paciente?.nome}
             pacienteDataNascimento={paciente?.dataNascimento}
             profissionalNome={

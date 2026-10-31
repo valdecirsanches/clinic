@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState, Component } from 'react';
-import { SaveIcon, CheckCircleIcon, ClockIcon, PrinterIcon } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { SaveIcon, CheckCircleIcon, ClockIcon, PrinterIcon, HistoryIcon, LockIcon, AlertCircleIcon } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { OdontogramaClinico } from '../../odontograma/OdontogramaClinico';
 import { ArcadasSvg } from '../../odontograma/ArcadasSvg';
@@ -26,6 +26,10 @@ interface OdontogramaEtapaProps {
   profissionalCabecalho?: string;
   profissionalEspecialidade?: string;
   profissionalRqes?: any[];
+  /** Data do atendimento de onde o odontograma foi trazido (quando este ainda não tem). */
+  trazidoDe?: string | null;
+  /** Atendimento assinado: somente leitura. */
+  assinado?: boolean;
 }
 export function OdontogramaEtapa({
   data,
@@ -44,7 +48,9 @@ export function OdontogramaEtapa({
   profissionalTitulo,
   profissionalCabecalho,
   profissionalEspecialidade,
-  profissionalRqes
+  profissionalRqes,
+  trazidoDe,
+  assinado
 }: OdontogramaEtapaProps) {
   const [odontogramaData, setOdontogramaData] = useState<OdontogramaData>(
     data || {}
@@ -52,14 +58,23 @@ export function OdontogramaEtapa({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState(false);
+  // Guarda o último estado e se há algo pendente, para salvar ao sair da aba.
+  const ultimoRef = useRef<OdontogramaData>(odontogramaData);
+  const pendenteRef = useRef(false);
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
   useEffect(() => {
-    if (data) {
+    if (data && !pendenteRef.current) {
       setOdontogramaData(data);
+      ultimoRef.current = data;
     }
   }, [data]);
   const handleChange = useCallback(
     (newData: OdontogramaData) => {
       setOdontogramaData(newData);
+      ultimoRef.current = newData;
+      pendenteRef.current = true;
       setHasChanges(true);
       onChange?.(newData);
     },
@@ -67,24 +82,38 @@ export function OdontogramaEtapa({
   );
   const handleSave = useCallback(async () => {
     if (!onSave) return;
+    const enviando = ultimoRef.current;
     setIsSaving(true);
     try {
-      await onSave(odontogramaData);
+      await onSave(enviando);
+      setErroSalvar(false);
       setLastSaved(new Date());
-      setHasChanges(false);
+      // Só limpa se nada mudou enquanto salvava
+      if (ultimoRef.current === enviando) {
+        pendenteRef.current = false;
+        setHasChanges(false);
+      }
     } catch (err) {
       console.error('Erro ao salvar odontograma:', err);
+      setErroSalvar(true);
     } finally {
       setIsSaving(false);
     }
-  }, [onSave, odontogramaData]);
+  }, [onSave]);
   useEffect(() => {
-    if (!hasChanges || readOnly || !onSave) return;
+    if (!hasChanges || readOnly || !onSave || erroSalvar) return;
     const timer = setTimeout(() => {
       handleSave();
-    }, 3000);
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [odontogramaData, hasChanges, readOnly, onSave, handleSave]);
+  }, [odontogramaData, hasChanges, readOnly, onSave, handleSave, erroSalvar]);
+  // Ao sair da aba (ou fechar o atendimento) com marcações não salvas, salva
+  // na hora. Antes o temporizador era cancelado e as marcações se perdiam.
+  useEffect(() => () => {
+    if (pendenteRef.current && onSaveRef.current) {
+      onSaveRef.current(ultimoRef.current).catch(() => {/* o aviso de erro já aparece */});
+    }
+  }, []);
   const formatLastSaved = () => {
     if (!lastSaved) return null;
     return lastSaved.toLocaleTimeString('pt-BR', {
@@ -344,7 +373,7 @@ export function OdontogramaEtapa({
           <div>
             <h2 className="text-xl font-medium text-teal-700">Odontograma</h2>
             {!readOnly &&
-            <p className="text-xs text-gray-500 mt-0.5">As marcações são salvas sozinhas poucos segundos depois de feitas.</p>
+            <p className="text-xs text-gray-500 mt-0.5">As marcações são salvas sozinhas logo depois de feitas.</p>
             }
           </div>
 
@@ -391,6 +420,27 @@ export function OdontogramaEtapa({
           </div>
         </div>
       </div>
+
+      {assinado ?
+      <div className="flex items-start gap-2.5 rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-700">
+          <LockIcon className="w-4 h-4 mt-0.5 shrink-0 text-gray-500" />
+          <p>Este atendimento já foi assinado, então o odontograma dele fica como estava. Para registrar mudanças, inicie um novo atendimento: ele já abre com estas marcações.</p>
+        </div> :
+      trazidoDe !== undefined && trazidoDe !== null && !hasChanges && Object.keys(odontogramaData).length > 0 ?
+      <div className="flex items-start gap-2.5 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-sm text-sky-900">
+          <HistoryIcon className="w-4 h-4 mt-0.5 shrink-0 text-sky-600" />
+          <p>
+            Odontograma do último atendimento{trazidoDe ? ` (${trazidoDe.split('-').reverse().join('/')})` : ''}. Continue marcando: as mudanças ficam salvas neste atendimento.
+          </p>
+        </div> :
+      null}
+
+      {erroSalvar &&
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-800" role="alert">
+          <span className="flex items-center gap-2"><AlertCircleIcon className="w-4 h-4" />As últimas marcações não foram salvas.</span>
+          <button type="button" onClick={handleSave} className="font-medium underline hover:no-underline">Tentar de novo</button>
+        </div>
+      }
 
       <OdontogramaClinico
         value={odontogramaData}
