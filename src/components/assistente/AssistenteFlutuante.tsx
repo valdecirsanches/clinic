@@ -27,6 +27,8 @@ interface AssistenteFlutuanteProps {
   usuarioId: string;
   onNavigate: (page: string, date?: string, profissionalId?: string) => void;
   onAbrirProntuario?: (pacienteId: string) => void;
+  /** Página aberta agora: ajuda a IA a entender pedidos como "abre a de amanhã". */
+  telaAtual?: string;
 }
 
 const EXEMPLOS_AGENDA = [
@@ -88,7 +90,7 @@ function ResumoDoDitado({ ditado }: {ditado: ResumoDitado;}) {
 
 }
 
-function PainelAssistente({ clinicaId, usuarioId, onNavigate, onAbrirProntuario }: AssistenteFlutuanteProps) {
+function PainelAssistente({ clinicaId, usuarioId, onNavigate, onAbrirProntuario, telaAtual }: AssistenteFlutuanteProps) {
   const [aberto, setAberto] = useState(false);
   const [texto, setTexto] = useState('');
   const [tutorial, setTutorial] = useState(false);
@@ -96,7 +98,7 @@ function PainelAssistente({ clinicaId, usuarioId, onNavigate, onAbrirProntuario 
   const reduzir = useReducedMotion();
   const fimRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const a = useAssistente({ clinicaId, usuarioId, onNavigate, onAbrirProntuario });
+  const a = useAssistente({ clinicaId, usuarioId, onNavigate, onAbrirProntuario, telaAtual });
 
   const editarNaCaixa = (frase: string) => {
     setComandos(false);

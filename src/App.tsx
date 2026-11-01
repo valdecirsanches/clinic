@@ -2257,6 +2257,7 @@ function MainApp() {
         <AssistenteFlutuante
           clinicaId={sessao.clinicaAtual.id}
           usuarioId={sessao.usuario.id}
+          telaAtual={currentPage}
           onNavigate={handleNavigate}
           onAbrirProntuario={(pacienteId) => handleIniciarAtendimento(pacienteId, undefined, 'resumo')} />
 

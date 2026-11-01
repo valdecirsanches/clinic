@@ -367,4 +367,34 @@ const ROTULO_TELA = {
   assinatura: 'Minha Assinatura'
 };
 
-module.exports = { configurado, transcrever, interpretar, interpretarProntuario, falar, ROTULO_TELA };
+// ==================== CHAT COM FERRAMENTAS (function calling) ====================
+// Uma volta do laço do agente (server/assistente/agente.js): devolve a
+// resposta crua da OpenAI, com `choices[0].message.tool_calls` e `usage`.
+async function chatComFerramentas({ messages, tools, tool_choice }) {
+  if (!configurado()) throw new Error('OPENAI_API_KEY não está definida no server/.env.local.');
+  return comTempoLimite(30000, async (signal) => {
+    const corpo = {
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      temperature: 0,
+      messages
+    };
+    if (tools && tools.length) {
+      corpo.tools = tools;
+      corpo.tool_choice = tool_choice || 'auto';
+      // Uma ferramenta por vez: o laço fica previsível e a proposta não
+      // concorre com outra chamada na mesma volta.
+      corpo.parallel_tool_calls = false;
+    }
+    const r = await fetchFn(`${OPENAI_URL}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${chave()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo),
+      signal
+    });
+    const json = await r.json().catch(() => null);
+    if (!r.ok) throw erroOpenAI(r.status, json);
+    return json;
+  });
+}
+
+module.exports = { configurado, transcrever, interpretar, interpretarProntuario, falar, chatComFerramentas, ROTULO_TELA };

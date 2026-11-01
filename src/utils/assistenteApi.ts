@@ -44,8 +44,12 @@ async function postar<T>(caminho: string, ctx: Contexto, corpo: object): Promise
 }
 
 export const assistenteApi = {
-  mensagem: (ctx: Contexto, texto: string, historico: {autor: string;texto: string;}[]) =>
-  postar<ResultadoAssistente>('/mensagem', ctx, { texto, historico }),
+  mensagem: (
+  ctx: Contexto,
+  texto: string,
+  historico: {autor: string;texto: string;}[],
+  contexto: {tela?: string;} = {}) =>
+  postar<ResultadoAssistente>('/mensagem', ctx, { texto, historico, contexto }),
   transcrever: (ctx: Contexto, audioBase64: string, mime: string, contexto: 'agenda' | 'prontuario' = 'agenda') =>
   postar<{texto: string;}>('/transcrever', ctx, { audioBase64, mime, contexto }),
   prontuario: (

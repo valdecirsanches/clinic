@@ -37,7 +37,12 @@ export type AcaoAuditoria =
 'IMPRESSAO_AVALIACAO' |
 'CRIACAO_USUARIO' |
 'ALTERACAO_USUARIO' |
-'EXCLUSAO_USUARIO';
+'EXCLUSAO_USUARIO' |
+'ASSISTENTE_CONSULTA' |
+'ASSISTENTE_PROPOSTA' |
+'ASSISTENTE_MARCACAO' |
+'ASSISTENTE_REMARCACAO' |
+'ASSISTENTE_CANCELAMENTO';
 
 // Tipos de entidade
 export type EntidadeAuditoria =
@@ -54,7 +59,8 @@ export type EntidadeAuditoria =
 'documento' |
 'procedimento' |
 'avaliacao' |
-'usuario';
+'usuario' |
+'assistente';
 
 // Labels amigáveis para exibição
 export const ACAO_LABELS: Record<AcaoAuditoria, string> = {
@@ -84,7 +90,12 @@ export const ACAO_LABELS: Record<AcaoAuditoria, string> = {
   IMPRESSAO_AVALIACAO: 'Imprimiu avaliação',
   CRIACAO_USUARIO: 'Cadastrou usuário',
   ALTERACAO_USUARIO: 'Alterou cadastro de usuário',
-  EXCLUSAO_USUARIO: 'Excluiu usuário'
+  EXCLUSAO_USUARIO: 'Excluiu usuário',
+  ASSISTENTE_CONSULTA: 'Assistente consultou',
+  ASSISTENTE_PROPOSTA: 'Assistente propôs',
+  ASSISTENTE_MARCACAO: 'Marcou pelo assistente',
+  ASSISTENTE_REMARCACAO: 'Remarcou pelo assistente',
+  ASSISTENTE_CANCELAMENTO: 'Cancelou pelo assistente'
 };
 
 // Ícones para cada ação
@@ -115,7 +126,12 @@ export const ACAO_ICONES: Record<AcaoAuditoria, string> = {
   IMPRESSAO_AVALIACAO: '🖨️',
   CRIACAO_USUARIO: '👤',
   ALTERACAO_USUARIO: '✏️',
-  EXCLUSAO_USUARIO: '🗑️'
+  EXCLUSAO_USUARIO: '🗑️',
+  ASSISTENTE_CONSULTA: '🤖',
+  ASSISTENTE_PROPOSTA: '🤖',
+  ASSISTENTE_MARCACAO: '📅',
+  ASSISTENTE_REMARCACAO: '🔁',
+  ASSISTENTE_CANCELAMENTO: '❌'
 };
 
 /**

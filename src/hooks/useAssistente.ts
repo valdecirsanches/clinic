@@ -11,6 +11,8 @@ interface Opcoes {
   usuarioId: string;
   onNavigate: (page: string, date?: string, profissionalId?: string) => void;
   onAbrirProntuario?: (pacienteId: string) => void;
+  /** Página aberta agora (id do menu): vai como contexto para a IA. */
+  telaAtual?: string;
 }
 
 export type ModoAssistente = 'agenda' | 'prontuario';
@@ -42,8 +44,11 @@ const MOTIVO_FALHA: Record<string, string> = {
   sem_resposta: 'a aba não abriu a tempo'
 };
 
-export function useAssistente({ clinicaId, usuarioId, onNavigate, onAbrirProntuario }: Opcoes) {
+export function useAssistente({ clinicaId, usuarioId, onNavigate, onAbrirProntuario, telaAtual }: Opcoes) {
   const ctx = { clinicaId, usuarioId };
+  // Ref: a tela muda a cada navegação e não deve recriar o envio.
+  const telaRef = useRef(telaAtual);
+  telaRef.current = telaAtual;
   const prontuario = useContextoProntuario();
   const [modo, setModo] = useState<ModoAssistente>(prontuario ? 'prontuario' : 'agenda');
   const [mensagens, setMensagens] = useState<MensagemAssistente[]>([]);
@@ -133,7 +138,7 @@ export function useAssistente({ clinicaId, usuarioId, onNavigate, onAbrirProntua
           voz.falar(fala);
           return;
         }
-        const resultado = await assistenteApi.mensagem(ctx, limpo, historico);
+        const resultado = await assistenteApi.mensagem(ctx, limpo, historico, { tela: telaRef.current });
         adicionar({ autor: 'assistente', texto: resultado.fala, resultado });
         voz.falar(resultado.fala);
         // Ações de navegação acontecem na hora: não gravam nada.
