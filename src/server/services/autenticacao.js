@@ -248,6 +248,77 @@ const PUBLICAS = [
 [['GET'], /^\/video\/bbb\/status\/?$/]];
 
 
+// ==================== PROGRAMAS DA CLÍNICA (sem login) ====================
+// Programas instalados nas máquinas da clínica que chamam a API sem usuário:
+//   • PrintServer (Windows): busca os tickets pendentes e marca como impressos;
+//   • BiometriaDigitalPersona (leitor de digital): funcionários, identificação
+//     e registro de ponto.
+// Só estas rotas, e só elas, aceitam o programa. Com a chave configurada no
+// .env.local, o programa precisa enviá-la (Authorization: Bearer <chave>,
+// X-Api-Key: <chave> ou ?token=<chave>); sem chave, a rota fica aberta como
+// era antes do login obrigatório, com aviso no log.
+const ROTAS_DE_PROGRAMAS = [
+{
+  programa: 'PrintServer',
+  chaveEnv: 'PRINTSERVER_API_KEY',
+  rotas: [
+  [['GET'], /^\/printserver\/jobs(\/pendentes)?\/?$/],
+  [['GET'], /^\/printserver\/job\/[^/]+\/?$/],
+  [['GET'], /^\/printserver\/cliente\/[^/]+\/(status|jobs)\/?$/],
+  [['POST'], /^\/printserver\/job\/[^/]+\/impresso\/?$/],
+  [['POST'], /^\/printserver\/jobs\/impresso\/?$/]]
+
+},
+{
+  programa: 'BiometriaDigitalPersona',
+  chaveEnv: 'BIOMETRIA_API_KEY',
+  rotas: [
+  [['GET'], /^\/biometria\/funcionarios\/?$/],
+  [['POST'], /^\/biometria\/funcionarios\/[^/]+\/digital\/?$/],
+  [['POST'], /^\/biometria\/identificar\/?$/],
+  [['POST'], /^\/biometria\/ponto\/?$/]]
+
+}];
+
+
+function programaDaRota(req) {
+  const metodo = req.method === 'HEAD' ? 'GET' : req.method;
+  return ROTAS_DE_PROGRAMAS.find((p) => p.rotas.some(([metodos, re]) => metodos.includes(metodo) && re.test(req.path))) || null;
+}
+
+function chaveEnviada(req) {
+  const auth = String(req.headers.authorization || '');
+  if (/^Bearer\s+/i.test(auth)) return auth.replace(/^Bearer\s+/i, '').trim();
+  const x = req.headers['x-api-key'];
+  if (x) return String(x).trim();
+  const q = req.query && (req.query.token || req.query.apiKey);
+  return q ? String(q).trim() : '';
+}
+
+function chavesIguais(a, b) {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+const avisosSemChave = new Set();
+/** true = programa autorizado; false = chave errada; null = não é rota de programa. */
+function autorizarPrograma(req) {
+  const p = programaDaRota(req);
+  if (!p) return null;
+  const chave = String(process.env[p.chaveEnv] || '').trim();
+  if (!chave) {
+    if (!avisosSemChave.has(p.programa)) {
+      avisosSemChave.add(p.programa);
+      console.warn(`⚠️ [AUTH] ${p.programa} acessando sem chave. Defina ${p.chaveEnv} no .env.local e configure a mesma chave no programa.`);
+    }
+    return true;
+  }
+  if (chavesIguais(chaveEnviada(req), chave)) return true;
+  console.warn(`🚫 [AUTH] ${p.programa}: chave ${p.chaveEnv} ausente ou errada em ${req.method} ${req.originalUrl.split('?')[0]}`);
+  return false;
+}
+
 function ehPublica(req) {
   const caminho = req.path;
   const metodo = req.method === 'HEAD' ? 'GET' : req.method;
@@ -344,6 +415,13 @@ async function middleware(req, res, next) {
     if (ehPublica(req)) return next();
 
     if (!usuario) {
+      // PrintServer e leitor biométrico: sem login, só nas rotas deles.
+      const programa = autorizarPrograma(req);
+      if (programa === true) return next();
+      if (programa === false) {
+        if (negar(req, res, 401, 'Chave do programa ausente ou inválida.', 'CHAVE_PROGRAMA')) return;
+        return next();
+      }
       if (negar(req, res, 401, 'Sessão expirada ou inválida. Entre novamente.', 'NAO_AUTENTICADO')) return;
       return next();
     }
@@ -546,5 +624,6 @@ module.exports = {
   podeAcessarClinica,
   ehClinicaConhecida,
   registrarAcessoClinica,
-  garantirTabela
+  garantirTabela,
+  autorizarPrograma
 };
