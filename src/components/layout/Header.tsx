@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, Component } from 'react';
-import { LogOutIcon, KeyIcon, PaletteIcon, BuildingIcon, MenuIcon, MessageSquareIcon, ArrowRightIcon } from 'lucide-react';
+import { LogOutIcon, KeyIcon, PaletteIcon, ChevronDownIcon, BuildingIcon, MenuIcon, MessageSquareIcon, ArrowRightIcon } from 'lucide-react';
 import { useMensagensRecebidas } from '../../hooks/useMensagensRecebidas';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
@@ -33,7 +33,22 @@ export function Header({
 }: HeaderProps) {
   const [showTrocaSenha, setShowTrocaSenha] = useState(false);
   const [whatsappStatus, setWhatsappStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
-  const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
+  const [isMenuUsuarioOpen, setIsMenuUsuarioOpen] = useState(false);
+  const [fotoFalhou, setFotoFalhou] = useState(false);
+  const primeiroNome = (sessao.usuario.nome || '').trim().split(/\s+/)[0] || 'Usuário';
+  const inicial = (sessao.usuario.nome || '?').charAt(0).toUpperCase();
+  const fotoUsuario = sessao.usuario.fotoUrl ?
+  sessao.usuario.fotoUrl.startsWith('/uploads') ? `${API_BASE_URL}${sessao.usuario.fotoUrl}` : sessao.usuario.fotoUrl :
+  '';
+  useEffect(() => setFotoFalhou(false), [fotoUsuario]);
+  useEffect(() => {
+    if (!isMenuUsuarioOpen) return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMenuUsuarioOpen(false);
+    };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [isMenuUsuarioOpen]);
   const [isMensagensOpen, setIsMensagensOpen] = useState(false);
   // ⭐ Contador de respostas de pacientes. Substitui o toast, que aparecia por
   // cima da tela e atrapalhava quem estava trabalhando na agenda.
@@ -349,56 +364,81 @@ export function Header({
                 </svg>
               </button>}
 
-            <Button variant="ghost" onClick={() => setShowTrocaSenha(true)} className="hidden sm:flex" title="Trocar senha e verificação em duas etapas">
-              
-              <KeyIcon className="w-4 h-4 mr-2" />
-              <span className="hidden lg:inline whitespace-nowrap">Segurança</span>
-            </Button>
-
-            {onAparencia &&
-            <Button variant="ghost" onClick={onAparencia} aria-label="Aparência" title="Aparência: cor, modo escuro, tamanho da letra e cantos — só para você">
-                <PaletteIcon className="w-4 h-4 lg:mr-2" />
-                <span className="hidden lg:inline whitespace-nowrap">Aparência</span>
-              </Button>
-            }
-
             <Button variant="ghost" onClick={onLogout}>
               <LogOutIcon className="w-4 h-4 lg:mr-2" />
               <span className="hidden lg:inline">Sair</span>
             </Button>
 
-            {/* ⭐ Foto do Usuário */}
-            <div className="relative flex items-center ml-2" style={{
-            width: 32,
-            height: 32
-          }}>
-              
-              <button onClick={() => setIsPhotoExpanded(!isPhotoExpanded)} className="flex-shrink-0 rounded-full overflow-hidden border border-gray-200 hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-300 z-10 bg-white" style={{
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              width: isPhotoExpanded ? 160 : 32,
-              height: isPhotoExpanded ? 160 : 32,
-              transition: 'width 300ms ease-in-out, height 300ms ease-in-out, box-shadow 300ms ease-in-out',
-              boxShadow: isPhotoExpanded ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' : 'none'
-            }} title={isPhotoExpanded ? 'Recolher foto' : 'Ampliar foto'}>
-                
-                {sessao.usuario.fotoUrl ? <img src={sessao.usuario.fotoUrl.startsWith('/uploads') ? `${API_BASE_URL}${sessao.usuario.fotoUrl}` : sessao.usuario.fotoUrl} alt={sessao.usuario.nome} className="w-full h-full object-cover" onError={(e) => {
-                const img = e.target as HTMLImageElement;
-                img.style.display = 'none';
-                const fallback = img.nextElementSibling as HTMLElement | null;
-                if (fallback) fallback.style.display = 'flex';
-              }} /> : null}
-                <div className="w-full h-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold" style={{
-                display: sessao.usuario.fotoUrl ? 'none' : 'flex',
-                fontSize: isPhotoExpanded ? '4rem' : '1rem'
-              }}>
-                  
-                  {(sessao.usuario.nome || '?').charAt(0).toUpperCase()}
-                </div>
+            {/* ⭐ Menu do usuário: nome + foto; ao clicar, Segurança e Aparência */}
+            <div className="relative ml-1">
+              <button
+                type="button"
+                onClick={() => setIsMenuUsuarioOpen(!isMenuUsuarioOpen)}
+                aria-haspopup="menu"
+                aria-expanded={isMenuUsuarioOpen}
+                title="Seu usuário: segurança e aparência"
+                className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 sm:pl-3 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-300">
+                <span className="hidden sm:block max-w-[200px] truncate text-sm font-medium text-gray-700">
+                  {sessao.usuario.nome || primeiroNome}
+                </span>
+                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-teal-100 font-bold text-teal-700">
+                  {fotoUsuario && !fotoFalhou ?
+                  <img src={fotoUsuario} alt="" className="h-full w-full object-cover" onError={() => setFotoFalhou(true)} /> :
+                  inicial}
+                </span>
+                <ChevronDownIcon className={`hidden sm:block h-4 w-4 text-gray-400 transition-transform ${isMenuUsuarioOpen ? 'rotate-180' : ''}`} />
               </button>
-              {/* Overlay para fechar quando expandido */}
-              {isPhotoExpanded && <div className="fixed inset-0 z-[5]" onClick={() => setIsPhotoExpanded(false)} />}
+
+              {isMenuUsuarioOpen &&
+              <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsMenuUsuarioOpen(false)} />
+                  <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                    <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
+                      <span className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-teal-100 text-2xl font-bold text-teal-700">
+                        {fotoUsuario && !fotoFalhou ?
+                      <img src={fotoUsuario} alt={sessao.usuario.nome} className="h-full w-full object-cover" onError={() => setFotoFalhou(true)} /> :
+                      inicial}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-gray-900">{sessao.usuario.nome}</p>
+                        {sessao.usuario.email && <p className="truncate text-xs text-gray-500">{sessao.usuario.email}</p>}
+                      </div>
+                    </div>
+                    <div className="py-1">
+                      <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsMenuUsuarioOpen(false);
+                        setShowTrocaSenha(true);
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50">
+                        <KeyIcon className="h-4 w-4 text-gray-500" />
+                        <span>
+                          <span className="block font-medium">Segurança</span>
+                          <span className="block text-xs text-gray-500">Senha e verificação em duas etapas</span>
+                        </span>
+                      </button>
+                      {onAparencia &&
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsMenuUsuarioOpen(false);
+                        onAparencia();
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50">
+                          <PaletteIcon className="h-4 w-4 text-gray-500" />
+                          <span>
+                            <span className="block font-medium">Aparência</span>
+                            <span className="block text-xs text-gray-500">Cor, modo escuro, letra e cantos</span>
+                          </span>
+                        </button>
+                    }
+                    </div>
+                  </div>
+                </>
+              }
             </div>
           </div>
         </div>
