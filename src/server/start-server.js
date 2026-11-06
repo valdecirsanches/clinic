@@ -488,6 +488,9 @@ console.log('   ✅ /api/operadoras');
 app.use('/api/clinicas', clinicasRoutes);
 console.log('   ✅ /api/clinicas');
 
+app.use('/api/anuncios', require(path.join(SERVER_DIR, 'routes/anuncios')));
+console.log('   ✅ /api/anuncios');
+
 app.use('/api/usuarios', usuariosRoutes);
 console.log('   ✅ /api/usuarios');
 

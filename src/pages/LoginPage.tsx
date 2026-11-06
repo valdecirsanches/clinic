@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { verDemonstracao } from '../utils/modoDemo';
 import { LoginForm, type LoginFormProps } from '../components/LoginForm';
 import { CadastroUsuarioModal } from '../components/CadastroUsuarioModal';
 import { TutorialOnboarding } from '../components/TutorialOnboarding';
@@ -115,6 +116,13 @@ export function LoginPage({
             <p className="text-xs text-gray-500 text-center">
               Conheça todas as funcionalidades do sistema
             </p>
+
+            <button
+              type="button"
+              onClick={verDemonstracao}
+              className="w-full text-sm font-medium text-teal-700 hover:text-teal-800 hover:underline">
+              Ver demonstração sem login
+            </button>
           </div>
         </div>
 

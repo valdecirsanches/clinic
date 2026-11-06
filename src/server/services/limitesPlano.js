@@ -112,4 +112,29 @@ async function verificarLimite(clinicaId, recurso, extra = {}) {
   }
 }
 
-module.exports = { verificarLimite };
+/**
+ * Clínica PAGANTE = plano com preço, contrato com valor mensal ou alguma fatura
+ * paga. Usado para esconder anúncios (AdSense) de quem paga. Em dúvida (erro
+ * de consulta), trata como pagante: melhor não mostrar anúncio a um cliente.
+ */
+async function clinicaPagante(clinicaId) {
+  if (!clinicaId) return false;
+  try {
+    const plano = await calculo.buscarPlanoDaClinica(clinicaId);
+    if (plano && Number(plano.preco) > 0) return true;
+
+    const contrato = await calculo.buscarContrato(clinicaId);
+    if (contrato && Number(contrato.valorMensalFixo) > 0) return true;
+
+    const paga = await dbGlobal.
+    prepare("SELECT COUNT(*) AS total FROM assinatura_faturas WHERE clinicaId = ? AND status = 'paga'").
+    get(clinicaId).
+    catch(() => null);
+    return Number(paga && paga.total || 0) > 0;
+  } catch (err) {
+    console.warn(`📦 ⚠️ [anuncios] Plano de ${clinicaId} não verificado: ${err.message}`);
+    return true;
+  }
+}
+
+module.exports = { verificarLimite, clinicaPagante };

@@ -44,6 +44,7 @@ import { ImportacaoPage } from './components/ImportacaoPage';
 import { CobrancasPage } from './components/CobrancasPage';
 import { MensagensPage } from './components/MensagensPage';
 import { LoginPage } from './components/LoginPage';
+import { useAnunciosAdSense } from './hooks/useAnunciosAdSense';
 import { AssinaturaPublicaPage } from './pages/AssinaturaPublicaPage';
 import { ConsultaConfirmacaoPublicaPage } from './pages/ConsultaConfirmacaoPublicaPage';
 import { ConsultaOnlinePublicaPage } from './pages/ConsultaOnlinePublicaPage';
@@ -342,6 +343,8 @@ function MainApp() {
     refresh: refreshUsuarios,
     notificarMudanca
   } = useAuth();
+  // Anúncios do AdSense só para quem não tem plano pago
+  useAnunciosAdSense(sessao);
   const {
     operadoras,
     addOperadora,

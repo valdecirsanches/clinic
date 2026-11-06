@@ -26,8 +26,80 @@ import {
   DEMO_USUARIOS } from
 '../data/demoFicticio';
 
-export const MODO_DEMO =
-typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === '1';
+// ─── Quando o modo demonstração liga ────────────────────────────────────────
+// 1) ?demo=1 → palco do Vídeo de Demonstração (sem botão, sem faixa).
+// 2) Visitante: quem abre o sistema sem sessão entra direto na demonstração,
+//    com o botão "Entrar" para ir à tela de login de verdade.
+//    Depois que alguém escolhe entrar (ou faz login) neste navegador, a
+//    preferência fica gravada e o sistema passa a abrir no login; a tela de
+//    login tem o link "Ver demonstração" para voltar.
+export const CHAVE_PREFERE_LOGIN = 'easyclin-abrir-no-login';
+
+/** Links públicos (assinatura, confirmação, sala online, documentos legais) usam a API real */
+const ROTAS_PUBLICAS = [
+'/assinar/',
+'/confirmar/',
+'/consulta-online/',
+'/falar/',
+'/politica-de-privacidade',
+'/termos-de-servico',
+'/exclusao-de-dados'];
+
+function lerArmazenamento(chave: string): string | null {
+  try {
+    return window.localStorage.getItem(chave);
+  } catch {
+    return null;
+  }
+}
+
+function gravarArmazenamento(chave: string, valor: string | null) {
+  try {
+    if (valor === null) window.localStorage.removeItem(chave);else
+    window.localStorage.setItem(chave, valor);
+  } catch {
+
+    /* navegador sem armazenamento: segue sem lembrar a preferência */}
+}
+
+const parametros =
+typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+
+/** Palco do Vídeo de Demonstração */
+export const DEMO_VIDEO = parametros.get('demo') === '1';
+
+// ?login=1 → o visitante clicou em "Entrar": lembra e limpa o endereço
+if (typeof window !== 'undefined' && !DEMO_VIDEO && parametros.get('login') === '1') {
+  gravarArmazenamento(CHAVE_PREFERE_LOGIN, '1');
+  parametros.delete('login');
+  const resto = parametros.toString();
+  window.history.replaceState(
+    null,
+    '',
+    window.location.pathname + (resto ? `?${resto}` : '') + window.location.hash
+  );
+}
+
+/** Visitante sem sessão vendo a demonstração (com botão de login) */
+export const DEMO_VISITANTE =
+typeof window !== 'undefined' &&
+!DEMO_VIDEO &&
+!ROTAS_PUBLICAS.some((r) => window.location.pathname.startsWith(r)) &&
+!lerArmazenamento('sessao') &&
+lerArmazenamento(CHAVE_PREFERE_LOGIN) !== '1';
+
+export const MODO_DEMO = DEMO_VIDEO || DEMO_VISITANTE;
+
+/** Sai da demonstração e abre a tela de login real (recarrega a página) */
+export function irParaLogin() {
+  window.location.href = '/?login=1';
+}
+
+/** Na tela de login: volta a abrir o sistema na demonstração */
+export function verDemonstracao() {
+  gravarArmazenamento(CHAVE_PREFERE_LOGIN, null);
+  window.location.href = '/';
+}
 
 // ─── Helpers de data ────────────────────────────────────────────────────────
 const p2 = (n: number) => String(n).padStart(2, '0');
@@ -460,11 +532,16 @@ function responder(url: URL, metodo: string): Response {
   });
 }
 
+const DOMINIOS_ANUNCIO =
+/(^|\.)(googlesyndication\.com|doubleclick\.net|googleadservices\.com|googletagservices\.com|google\.com|gstatic\.com|adtrafficquality\.google)$/;
+
 /** Só arquivos do próprio sistema (scripts, estilos) e fontes podem sair para a rede */
 function podeIrParaRede(url: URL): boolean {
   if (url.pathname.includes('/api/')) return false;
   if (url.origin === window.location.origin) return true;
-  return /(^|\.)fonts\.(googleapis|gstatic)\.com$/.test(url.hostname);
+  if (/(^|\.)fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) return true;
+  // Visitante: anúncios do AdSense precisam falar com o Google
+  return DEMO_VISITANTE && DOMINIOS_ANUNCIO.test(url.hostname);
 }
 
 // ─── Instalação ─────────────────────────────────────────────────────────────
@@ -536,8 +613,59 @@ function instalar() {
   }
   ;(window as unknown as {EventSource: unknown;}).EventSource = ConexaoInerte;
   (window as unknown as {WebSocket: unknown;}).WebSocket = ConexaoInerte;
-  if (navigator.sendBeacon) navigator.sendBeacon = () => true;
-  window.open = () => null;
+  // No vídeo nada sai da tela; o visitante pode abrir os anúncios normalmente
+  if (DEMO_VIDEO) {
+    if (navigator.sendBeacon) navigator.sendBeacon = () => true;
+    window.open = () => null;
+  }
+}
+
+// ─── Faixa "Demonstração" com o botão Entrar (só para o visitante) ──────────
+function mostrarFaixaVisitante() {
+  const montar = () => {
+    if (document.getElementById('easyclin-faixa-demo')) return;
+    const faixa = document.createElement('div');
+    faixa.id = 'easyclin-faixa-demo';
+    faixa.setAttribute('role', 'region');
+    faixa.setAttribute('aria-label', 'Modo demonstração');
+    faixa.style.cssText = [
+    'position:fixed', 'right:16px', 'bottom:16px', 'z-index:2147483000',
+    'display:flex', 'align-items:center', 'gap:12px', 'max-width:calc(100vw - 32px)',
+    'padding:10px 10px 10px 16px', 'border-radius:14px',
+    'background:#0f172a', 'color:#f8fafc', 'box-shadow:0 10px 30px rgba(0,0,0,.25)',
+    'font:500 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif'].
+    join(';');
+
+    const texto = document.createElement('span');
+    texto.innerHTML =
+    '<strong style="display:block;font-size:13px">Modo demonstração</strong>' +
+    '<span style="opacity:.75;font-size:12px">Dados fictícios — nada é gravado.</span>';
+
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.textContent = 'Entrar';
+    botao.title = 'Ir para a tela de login';
+    botao.style.cssText = [
+    'flex:none', 'padding:9px 18px', 'border:0', 'border-radius:10px', 'cursor:pointer',
+    'background:#14b8a6', 'color:#fff', 'font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif'].
+    join(';');
+    botao.addEventListener('mouseenter', () => botao.style.background = '#0d9488');
+    botao.addEventListener('mouseleave', () => botao.style.background = '#14b8a6');
+    botao.addEventListener('click', irParaLogin);
+
+    faixa.append(texto, botao);
+    document.body.appendChild(faixa);
+  };
+  if (document.body) montar();else
+  document.addEventListener('DOMContentLoaded', montar, { once: true });
+
+  // "Sair" dentro da demonstração leva ao login real
+  window.addEventListener('user-logout', irParaLogin);
 }
 
 if (MODO_DEMO) instalar();
+if (DEMO_VISITANTE) mostrarFaixaVisitante();
+
+// Quem já entrou com login neste navegador passa a abrir no login
+// (inclusive depois de sair ou de a sessão expirar).
+if (!MODO_DEMO && lerArmazenamento('sessao')) gravarArmazenamento(CHAVE_PREFERE_LOGIN, '1');
