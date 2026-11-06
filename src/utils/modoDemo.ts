@@ -549,6 +549,8 @@ function instalar() {
   // 1) Armazenamento em memória: nada do navegador real é lido ou alterado
   const memoria = { local: new Map<string, string>(), sessao: new Map<string, string>() };
   memoria.local.set('sessao', JSON.stringify(SESSAO_DEMO));
+  // Token fictício: sem ele o useAuth descarta a sessão (exige login com token)
+  memoria.local.set('easyclin_auth_token', 'demonstracao');
   const localReal = window.localStorage;
   const mapa = (s: Storage) => s === localReal ? memoria.local : memoria.sessao;
   const proto = Storage.prototype;

@@ -45,6 +45,8 @@ import { CobrancasPage } from './components/CobrancasPage';
 import { MensagensPage } from './components/MensagensPage';
 import { LoginPage } from './components/LoginPage';
 import { useAnunciosAdSense } from './hooks/useAnunciosAdSense';
+import { AparenciaModal } from './components/AparenciaModal';
+import { aplicarTema } from './utils/temas';
 import { AssinaturaPublicaPage } from './pages/AssinaturaPublicaPage';
 import { ConsultaConfirmacaoPublicaPage } from './pages/ConsultaConfirmacaoPublicaPage';
 import { ConsultaOnlinePublicaPage } from './pages/ConsultaOnlinePublicaPage';
@@ -329,6 +331,7 @@ function MainApp() {
     error: dialogError
   } = useDialog();
   const {
+    atualizarTemaUsuario,
     sessao,
     login,
     confirmarCodigo,
@@ -345,6 +348,14 @@ function MainApp() {
   } = useAuth();
   // Anúncios do AdSense só para quem não tem plano pago
   useAnunciosAdSense(sessao);
+  // Aparência por usuário: sem tema salvo = padrão. Sem login, fica a
+  // última aparência deste navegador (aplicada no index.tsx).
+  const [showAparencia, setShowAparencia] = useState(false);
+  const temaDoUsuario = sessao?.usuario ? JSON.stringify(sessao.usuario.tema ?? null) : null;
+  useEffect(() => {
+    if (temaDoUsuario === null) return;
+    aplicarTema(JSON.parse(temaDoUsuario));
+  }, [temaDoUsuario]);
   const {
     operadoras,
     addOperadora,
@@ -2208,8 +2219,17 @@ function MainApp() {
             clinicas={clinicas}
             onSelecionarClinica={selecionarClinica}
             onNavigate={handleNavigate}
-            onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-          
+            onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+            onAparencia={() => setShowAparencia(true)} />
+          {showAparencia &&
+          <AparenciaModal
+            usuarioId={sessao.usuario.id}
+            atual={sessao.usuario.tema}
+            onSalvo={atualizarTemaUsuario}
+            onAviso={(tipo, titulo, texto) => tipo === 'sucesso' ? success(titulo, texto) : error(titulo, texto)}
+            onFechar={() => setShowAparencia(false)} />
+          }
+
 
           <div className="relative flex flex-1 overflow-hidden">
             <Sidebar

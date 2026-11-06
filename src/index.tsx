@@ -3,6 +3,9 @@
 import './utils/modoDemo';
 // ⭐ Envia o token de login em toda chamada à API (antes de qualquer fetch)
 import './utils/instalarAutenticacao';
+// Última aparência usada neste navegador, antes da tela aparecer (sem piscar)
+import { aplicarTema, lerTemaLocal } from './utils/temas';
+aplicarTema(lerTemaLocal());
 import React, { useEffect, createElement } from 'react';
 // Silence verbose console output in production builds (Phase 1 — performance).
 // Keeps console.error so real failures still surface, but no-ops the chatty

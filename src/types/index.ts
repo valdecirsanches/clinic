@@ -460,6 +460,8 @@ export interface Usuario {
   id: string;
   nome: string;
   email: string;
+  /** Aparência da tela (JSON ou objeto; null = padrão). utils/temas.ts */
+  tema?: import('../utils/temas').PreferenciaTema | string | null;
   senha: string;
   tipo: TipoUsuario;
   operadoraId: string | null;

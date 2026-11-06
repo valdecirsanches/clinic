@@ -70,6 +70,8 @@ const migrarColunas = async () => {
   await migrar('prontuarioTotal', 'TINYINT DEFAULT 0');
   // ⭐ Verificação em duas etapas (código pelo WhatsApp)
   await migrar('doisFatores', 'TINYINT DEFAULT 0');
+  // ⭐ Aparência da tela escolhida pelo usuário (JSON: cor, modo, letra, cantos; NULL = padrão)
+  await migrar('tema', 'VARCHAR(255)');
   // ⭐ FIX: Garante que fotoUrl seja LONGTEXT (base64 de fotos pode exceder 65KB do TEXT)
   await modificar('fotoUrl', 'LONGTEXT');
 };
@@ -560,6 +562,35 @@ router.patch('/:id/preferencias', async (req, res) => {
     res.json({ success: true, changes: result.changes });
   } catch (err) {
     console.error('❌ Erro ao salvar preferências:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ⭐ PUT /api/usuarios/:id/aparencia — tema da tela do PRÓPRIO usuário
+// Corpo: { tema: {cor, modo, letra, cantos} } ou { tema: null } (= voltar ao padrão).
+const TEMA_CORES = ['verde-agua', 'azul', 'verde', 'roxo', 'vinho', 'laranja', 'grafite'];
+function limparTema(t) {
+  if (!t || typeof t !== 'object') return null;
+  return {
+    cor: TEMA_CORES.includes(t.cor) ? t.cor : 'verde-agua',
+    modo: t.modo === 'escuro' ? 'escuro' : 'claro',
+    letra: t.letra === 'grande' ? 'grande' : 'normal',
+    cantos: t.cantos === 'retos' ? 'retos' : 'arredondados'
+  };
+}
+router.put('/:id/aparencia', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const ator = req.usuario || null;
+    if (ator && String(ator.id) !== String(id) && ator.tipo !== 'super_admin') {
+      return res.status(403).json({ error: 'Cada usuário altera só a própria aparência.' });
+    }
+    await migrarColunas();
+    const tema = limparTema(req.body && req.body.tema);
+    await dbGlobal.prepare('UPDATE usuarios SET tema = ? WHERE id = ?').run(tema ? JSON.stringify(tema) : null, id);
+    res.json({ success: true, tema });
+  } catch (err) {
+    console.error('❌ Erro ao salvar aparência:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -4,27 +4,30 @@
 //     quem vai entrar costuma ser cliente);
 //   • usuário logado → pergunta ao servidor (/api/anuncios) se a clínica paga;
 //   • super admin, clínica pagante e palco do Vídeo de Demonstração → nunca.
-// O script só é inserido quando pode exibir. Se a clínica passar a pagar com o
-// script já carregado, a página recarrega para tirar os anúncios.
+// O código do AdSense fica no index.html (exigência do Google) com os pedidos
+// de anúncio PAUSADOS; só este hook libera. Se a clínica passar a pagar com os
+// anúncios já liberados, a página recarrega para tirá-los.
 import { useEffect } from 'react';
 import { API_BASE_URL } from '../config/api';
 import { DEMO_VIDEO, DEMO_VISITANTE } from '../utils/modoDemo';
 
 export const ADSENSE_CLIENTE = 'ca-pub-8474105490186035';
-const ID_SCRIPT = 'easyclin-adsense';
 
-function carregarAdSense() {
-  if (typeof document === 'undefined' || document.getElementById(ID_SCRIPT)) return;
-  const script = document.createElement('script');
-  script.id = ID_SCRIPT;
-  script.async = true;
-  script.crossOrigin = 'anonymous';
-  script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENTE}`;
-  document.head.appendChild(script);
+type FilaAdSense = unknown[] & {pauseAdRequests?: number;};
+const fila = (): FilaAdSense => {
+  const w = window as unknown as {adsbygoogle?: FilaAdSense;};
+  w.adsbygoogle = w.adsbygoogle || [];
+  return w.adsbygoogle;
+};
+
+/** O código do AdSense (index.html) começa pausado; aqui libera os pedidos. */
+function liberarAnuncios() {
+  if (typeof window === 'undefined') return;
+  fila().pauseAdRequests = 0;
 }
 
-function adSenseCarregado() {
-  return typeof document !== 'undefined' && !!document.getElementById(ID_SCRIPT);
+function anunciosLiberados() {
+  return typeof window !== 'undefined' && fila().pauseAdRequests === 0;
 }
 
 interface SessaoMinima {
@@ -42,7 +45,7 @@ export function useAnunciosAdSense(sessao: SessaoMinima | null | undefined) {
 
     // Visitante na demonstração (a sessão dela é fictícia)
     if (DEMO_VISITANTE) {
-      carregarAdSense();
+      liberarAnuncios();
       return;
     }
     if (!logado || tipo === 'super_admin' || !clinicaId) return;
@@ -52,8 +55,8 @@ export function useAnunciosAdSense(sessao: SessaoMinima | null | undefined) {
     then((r) => r.ok ? r.json() : { exibir: false }).
     then((dados: {exibir?: boolean;}) => {
       if (cancelado) return;
-      if (dados?.exibir) carregarAdSense();else
-      if (adSenseCarregado()) window.location.reload();
+      if (dados?.exibir) liberarAnuncios();else
+      if (anunciosLiberados()) window.location.reload();
     }).
     catch(() => {
 

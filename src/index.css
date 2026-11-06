@@ -128,3 +128,105 @@ body {
   vertical-align: top;
 }
 .evolucao-texto th { background: #f1f5f9; font-weight: 600; }
+
+/* ─── Aparência por usuário (src/utils/temas.ts) ──────────────────────────────
+   "teal-*" (destaque) e "gray-*" leem estas variáveis (vite.config.ts).
+   Valores abaixo = aparência padrão do EasyClin. */
+:root {
+  --destaque-50: 240 253 250; --destaque-100: 204 251 241; --destaque-200: 153 246 228; --destaque-300: 94 234 212;
+  --destaque-400: 45 212 191; --destaque-500: 20 184 166; --destaque-600: 13 148 136; --destaque-700: 15 118 110;
+  --destaque-800: 17 94 89; --destaque-900: 19 78 74; --destaque-950: 4 47 46;
+  --cinza-50: 249 250 251; --cinza-100: 243 244 246; --cinza-200: 229 231 235; --cinza-300: 209 213 219;
+  --cinza-400: 156 163 175; --cinza-500: 107 114 128; --cinza-600: 75 85 99; --cinza-700: 55 65 81;
+  --cinza-800: 31 41 55; --cinza-900: 17 24 39; --cinza-950: 3 7 18;
+}
+
+
+/* ─── Tema escuro (classe no <html>, ver src/data/temas.ts) ─────────────────
+   A escala de cinza já vem invertida pelas variáveis; aqui escurecem os
+   fundos brancos e os tons claros das cores de aviso (verde, vermelho,
+   amarelo...), e os textos dessas cores ficam claros para dar contraste.
+   Botões coloridos com texto branco continuam iguais. */
+.tema-escuro body { background-color: rgb(var(--cinza-50)); color: rgb(var(--cinza-900)); }
+.tema-escuro .bg-white { background-color: rgb(30 36 47) !important; }
+.tema-escuro .bg-white\/80, .tema-escuro .bg-white\/90, .tema-escuro .bg-white\/95 { background-color: rgb(30 36 47 / .92) !important; }
+.tema-escuro .to-white { --tw-gradient-to: rgb(30 36 47) var(--tw-gradient-to-position) !important; }
+.tema-escuro .from-white { --tw-gradient-from: rgb(30 36 47) var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(30 36 47 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.tema-escuro .via-white { --tw-gradient-stops: var(--tw-gradient-from), rgb(30 36 47) var(--tw-gradient-via-position), var(--tw-gradient-to) !important; }
+.tema-escuro .from-blue-50, .tema-escuro .from-green-50, .tema-escuro .from-teal-50, .tema-escuro .from-cyan-50 { --tw-gradient-from: rgb(30 36 47) var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(30 36 47 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.tema-escuro .to-indigo-50, .tema-escuro .to-emerald-50 { --tw-gradient-to: rgb(35 42 56) var(--tw-gradient-to-position) !important; }
+.tema-escuro .bg-teal-200 { background-color: rgb(var(--destaque-800) / .6) !important; }
+.tema-escuro .hover\:bg-white:hover { background-color: rgb(40 47 60) !important; }
+.tema-escuro .bg-slate-50, .tema-escuro .bg-slate-100 { background-color: rgb(31 38 50) !important; }
+.tema-escuro .text-slate-900, .tema-escuro .text-slate-800, .tema-escuro .text-slate-700 { color: rgb(226 231 238) !important; }
+.tema-escuro .text-slate-600, .tema-escuro .text-slate-500 { color: rgb(178 187 200) !important; }
+.tema-escuro .border-slate-200, .tema-escuro .border-slate-300 { border-color: rgb(64 75 92) !important; }
+.tema-escuro .text-black { color: rgb(241 244 248) !important; }
+.tema-escuro .shadow-sm, .tema-escuro .shadow, .tema-escuro .shadow-md, .tema-escuro .shadow-lg, .tema-escuro .shadow-xl { --tw-shadow-color: rgb(0 0 0 / .45); }
+.tema-escuro input, .tema-escuro select, .tema-escuro textarea { background-color: rgb(24 29 39); color: rgb(var(--cinza-900)); }
+.tema-escuro input::placeholder, .tema-escuro textarea::placeholder { color: rgb(var(--cinza-400)); }
+.tema-escuro input[type="checkbox"], .tema-escuro input[type="radio"] { background-color: rgb(24 29 39); }
+.tema-escuro img { opacity: .95; }
+.tema-escuro ::-webkit-scrollbar-track { background: rgb(var(--cinza-100)); }
+.tema-escuro ::-webkit-scrollbar-thumb { background: rgb(var(--cinza-300)); }
+.tema-escuro .bg-green-50 { background-color: rgb(34 197 94 / .14) !important; }
+.tema-escuro .bg-green-100 { background-color: rgb(34 197 94 / .22) !important; }
+.tema-escuro .border-green-100, .tema-escuro .border-green-200, .tema-escuro .border-green-300 { border-color: rgb(34 197 94 / .45) !important; }
+.tema-escuro .text-green-600, .tema-escuro .text-green-700, .tema-escuro .text-green-800, .tema-escuro .text-green-900 { color: rgb(134 239 172) !important; }
+.tema-escuro .bg-emerald-50 { background-color: rgb(16 185 129 / .14) !important; }
+.tema-escuro .bg-emerald-100 { background-color: rgb(16 185 129 / .22) !important; }
+.tema-escuro .border-emerald-100, .tema-escuro .border-emerald-200, .tema-escuro .border-emerald-300 { border-color: rgb(16 185 129 / .45) !important; }
+.tema-escuro .text-emerald-600, .tema-escuro .text-emerald-700, .tema-escuro .text-emerald-800, .tema-escuro .text-emerald-900 { color: rgb(110 231 183) !important; }
+.tema-escuro .bg-red-50 { background-color: rgb(239 68 68 / .14) !important; }
+.tema-escuro .bg-red-100 { background-color: rgb(239 68 68 / .22) !important; }
+.tema-escuro .border-red-100, .tema-escuro .border-red-200, .tema-escuro .border-red-300 { border-color: rgb(239 68 68 / .45) !important; }
+.tema-escuro .text-red-600, .tema-escuro .text-red-700, .tema-escuro .text-red-800, .tema-escuro .text-red-900 { color: rgb(252 165 165) !important; }
+.tema-escuro .bg-rose-50 { background-color: rgb(244 63 94 / .14) !important; }
+.tema-escuro .bg-rose-100 { background-color: rgb(244 63 94 / .22) !important; }
+.tema-escuro .border-rose-100, .tema-escuro .border-rose-200, .tema-escuro .border-rose-300 { border-color: rgb(244 63 94 / .45) !important; }
+.tema-escuro .text-rose-600, .tema-escuro .text-rose-700, .tema-escuro .text-rose-800, .tema-escuro .text-rose-900 { color: rgb(253 164 175) !important; }
+.tema-escuro .bg-amber-50 { background-color: rgb(245 158 11 / .14) !important; }
+.tema-escuro .bg-amber-100 { background-color: rgb(245 158 11 / .22) !important; }
+.tema-escuro .border-amber-100, .tema-escuro .border-amber-200, .tema-escuro .border-amber-300 { border-color: rgb(245 158 11 / .45) !important; }
+.tema-escuro .text-amber-600, .tema-escuro .text-amber-700, .tema-escuro .text-amber-800, .tema-escuro .text-amber-900 { color: rgb(252 211 77) !important; }
+.tema-escuro .bg-yellow-50 { background-color: rgb(234 179 8 / .14) !important; }
+.tema-escuro .bg-yellow-100 { background-color: rgb(234 179 8 / .22) !important; }
+.tema-escuro .border-yellow-100, .tema-escuro .border-yellow-200, .tema-escuro .border-yellow-300 { border-color: rgb(234 179 8 / .45) !important; }
+.tema-escuro .text-yellow-600, .tema-escuro .text-yellow-700, .tema-escuro .text-yellow-800, .tema-escuro .text-yellow-900 { color: rgb(253 224 71) !important; }
+.tema-escuro .bg-orange-50 { background-color: rgb(249 115 22 / .14) !important; }
+.tema-escuro .bg-orange-100 { background-color: rgb(249 115 22 / .22) !important; }
+.tema-escuro .border-orange-100, .tema-escuro .border-orange-200, .tema-escuro .border-orange-300 { border-color: rgb(249 115 22 / .45) !important; }
+.tema-escuro .text-orange-600, .tema-escuro .text-orange-700, .tema-escuro .text-orange-800, .tema-escuro .text-orange-900 { color: rgb(253 186 116) !important; }
+.tema-escuro .bg-purple-50 { background-color: rgb(168 85 247 / .14) !important; }
+.tema-escuro .bg-purple-100 { background-color: rgb(168 85 247 / .22) !important; }
+.tema-escuro .border-purple-100, .tema-escuro .border-purple-200, .tema-escuro .border-purple-300 { border-color: rgb(168 85 247 / .45) !important; }
+.tema-escuro .text-purple-600, .tema-escuro .text-purple-700, .tema-escuro .text-purple-800, .tema-escuro .text-purple-900 { color: rgb(216 180 254) !important; }
+.tema-escuro .bg-violet-50 { background-color: rgb(139 92 246 / .14) !important; }
+.tema-escuro .bg-violet-100 { background-color: rgb(139 92 246 / .22) !important; }
+.tema-escuro .border-violet-100, .tema-escuro .border-violet-200, .tema-escuro .border-violet-300 { border-color: rgb(139 92 246 / .45) !important; }
+.tema-escuro .text-violet-600, .tema-escuro .text-violet-700, .tema-escuro .text-violet-800, .tema-escuro .text-violet-900 { color: rgb(196 181 253) !important; }
+.tema-escuro .bg-indigo-50 { background-color: rgb(99 102 241 / .14) !important; }
+.tema-escuro .bg-indigo-100 { background-color: rgb(99 102 241 / .22) !important; }
+.tema-escuro .border-indigo-100, .tema-escuro .border-indigo-200, .tema-escuro .border-indigo-300 { border-color: rgb(99 102 241 / .45) !important; }
+.tema-escuro .text-indigo-600, .tema-escuro .text-indigo-700, .tema-escuro .text-indigo-800, .tema-escuro .text-indigo-900 { color: rgb(165 180 252) !important; }
+.tema-escuro .bg-sky-50 { background-color: rgb(14 165 233 / .14) !important; }
+.tema-escuro .bg-sky-100 { background-color: rgb(14 165 233 / .22) !important; }
+.tema-escuro .border-sky-100, .tema-escuro .border-sky-200, .tema-escuro .border-sky-300 { border-color: rgb(14 165 233 / .45) !important; }
+.tema-escuro .text-sky-600, .tema-escuro .text-sky-700, .tema-escuro .text-sky-800, .tema-escuro .text-sky-900 { color: rgb(125 211 252) !important; }
+.tema-escuro .bg-cyan-50 { background-color: rgb(6 182 212 / .14) !important; }
+.tema-escuro .bg-cyan-100 { background-color: rgb(6 182 212 / .22) !important; }
+.tema-escuro .border-cyan-100, .tema-escuro .border-cyan-200, .tema-escuro .border-cyan-300 { border-color: rgb(6 182 212 / .45) !important; }
+.tema-escuro .text-cyan-600, .tema-escuro .text-cyan-700, .tema-escuro .text-cyan-800, .tema-escuro .text-cyan-900 { color: rgb(103 232 249) !important; }
+
+.tema-escuro .bg-blue-50 { background-color: rgb(59 130 246 / .14) !important; }
+.tema-escuro .bg-blue-100 { background-color: rgb(59 130 246 / .22) !important; }
+.tema-escuro .border-blue-100, .tema-escuro .border-blue-200, .tema-escuro .border-blue-300 { border-color: rgb(59 130 246 / .45) !important; }
+.tema-escuro .text-blue-600, .tema-escuro .text-blue-700, .tema-escuro .text-blue-800, .tema-escuro .text-blue-900 { color: rgb(147 197 253) !important; }
+.tema-escuro .bg-blue-200 { background-color: rgb(59 130 246 / .3) !important; }
+
+.tema-escuro .text-teal-600, .tema-escuro .text-teal-700, .tema-escuro .text-teal-800, .tema-escuro .text-teal-900 { color: rgb(var(--destaque-300)) !important; }
+.tema-escuro .border-teal-200, .tema-escuro .border-teal-300 { border-color: rgb(var(--destaque-700)) !important; }
+
+/* Cantos retos (opção do tema). */
+.tema-cantos-retos .rounded, .tema-cantos-retos .rounded-md, .tema-cantos-retos .rounded-lg,
+.tema-cantos-retos .rounded-xl, .tema-cantos-retos .rounded-2xl { border-radius: 3px !important; }

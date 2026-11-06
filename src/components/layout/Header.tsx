@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, Component } from 'react';
-import { LogOutIcon, KeyIcon, BuildingIcon, MenuIcon, MessageSquareIcon, ArrowRightIcon } from 'lucide-react';
+import { LogOutIcon, KeyIcon, PaletteIcon, BuildingIcon, MenuIcon, MessageSquareIcon, ArrowRightIcon } from 'lucide-react';
 import { useMensagensRecebidas } from '../../hooks/useMensagensRecebidas';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
@@ -17,6 +17,7 @@ interface HeaderProps {
   onSelecionarClinica: (clinica: Clinica) => void;
   onNavigate?: (page: string) => void;
   onToggleSidebar?: () => void;
+  onAparencia?: () => void;
 }
 export function Header({
   sessao,
@@ -27,7 +28,8 @@ export function Header({
   clinicas,
   onSelecionarClinica,
   onNavigate,
-  onToggleSidebar
+  onToggleSidebar,
+  onAparencia
 }: HeaderProps) {
   const [showTrocaSenha, setShowTrocaSenha] = useState(false);
   const [whatsappStatus, setWhatsappStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
@@ -352,6 +354,13 @@ export function Header({
               <KeyIcon className="w-4 h-4 mr-2" />
               <span className="hidden lg:inline whitespace-nowrap">Segurança</span>
             </Button>
+
+            {onAparencia &&
+            <Button variant="ghost" onClick={onAparencia} className="hidden sm:flex" title="Cor, modo escuro, tamanho da letra e cantos — só para você">
+                <PaletteIcon className="w-4 h-4 lg:mr-2" />
+                <span className="hidden lg:inline whitespace-nowrap">Aparência</span>
+              </Button>
+            }
 
             <Button variant="ghost" onClick={onLogout}>
               <LogOutIcon className="w-4 h-4 lg:mr-2" />

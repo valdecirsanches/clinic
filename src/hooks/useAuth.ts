@@ -788,7 +788,21 @@ export function useAuth() {
     };
     return permissoes[pagina]?.includes(tipo) || false;
   };
+  /** Guarda na sessão a aparência que o usuário acabou de salvar (null = padrão). */
+  const atualizarTemaUsuario = (tema: any) => {
+    setSessao((prev: any) => {
+      if (!prev?.usuario) return prev;
+      const atualizado = { ...prev, usuario: { ...prev.usuario, tema } };
+      try {
+        localStorage.setItem(STORAGE_KEYS.SESSAO, JSON.stringify(atualizado));
+      } catch {
+
+        /* sem armazenamento */}
+      return atualizado;
+    });
+  };
   return {
+    atualizarTemaUsuario,
     sessao,
     loading,
     login,

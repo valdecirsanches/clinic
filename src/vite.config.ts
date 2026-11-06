@@ -34,6 +34,11 @@ function localizarEnvDir(): string {
   return process.cwd();
 }
 
+// Tons do Tailwind que leem variáveis CSS (aparência por usuário)
+const TONS_TEMA = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'];
+const daVariavel = (prefixo: string) =>
+Object.fromEntries(TONS_TEMA.map((t) => [t, `rgb(var(--${prefixo}-${t}) / <alpha-value>)`]));
+
 // https://vitejs.dev/config/
 // 🔧 Valores específicos de ambiente vêm de variáveis (.env.local, NÃO versionado).
 //    Se não definidas, usa os padrões abaixo — então este arquivo não precisa ser
@@ -90,8 +95,15 @@ export default defineConfig(({
         //    arquivo: o Tailwind SEMPRE varre estes fontes.
         plugins: [tailwindcss({
           content: ['./index.html', './index.tsx', './App.tsx', './components/**/*.{ts,tsx}', './pages/**/*.{ts,tsx}', './contexts/**/*.{ts,tsx}', './hooks/**/*.{ts,tsx}', './utils/**/*.{ts,tsx}'],
+          // Aparência por usuário (utils/temas.ts): "teal-*" (destaque) e
+          // "gray-*" leem variáveis CSS (padrões em index.css).
           theme: {
-            extend: {}
+            extend: {
+              colors: {
+                teal: daVariavel('destaque'),
+                gray: daVariavel('cinza')
+              }
+            }
           },
           plugins: []
         }), autoprefixer()]
