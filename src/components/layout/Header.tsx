@@ -356,7 +356,7 @@ export function Header({
             </Button>
 
             {onAparencia &&
-            <Button variant="ghost" onClick={onAparencia} className="hidden sm:flex" title="Cor, modo escuro, tamanho da letra e cantos — só para você">
+            <Button variant="ghost" onClick={onAparencia} aria-label="Aparência" title="Aparência: cor, modo escuro, tamanho da letra e cantos — só para você">
                 <PaletteIcon className="w-4 h-4 lg:mr-2" />
                 <span className="hidden lg:inline whitespace-nowrap">Aparência</span>
               </Button>
