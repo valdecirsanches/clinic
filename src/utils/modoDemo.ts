@@ -80,6 +80,20 @@ if (typeof window !== 'undefined' && !DEMO_VIDEO && parametros.get('login') === 
   );
 }
 
+// ?demonstracao=1 → veio do botão "Ver demonstração" do site (sky9.com.br):
+// esquece a preferência pelo login para abrir a demonstração mesmo assim.
+// Quem já está logado continua no sistema normalmente.
+if (typeof window !== 'undefined' && !DEMO_VIDEO && parametros.get('demonstracao') === '1') {
+  gravarArmazenamento(CHAVE_PREFERE_LOGIN, null);
+  parametros.delete('demonstracao');
+  const resto = parametros.toString();
+  window.history.replaceState(
+    null,
+    '',
+    window.location.pathname + (resto ? `?${resto}` : '') + window.location.hash
+  );
+}
+
 /** Visitante sem sessão vendo a demonstração (com botão de login) */
 export const DEMO_VISITANTE =
 typeof window !== 'undefined' &&
