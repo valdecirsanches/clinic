@@ -6,6 +6,7 @@ import autoprefixer from 'autoprefixer';
 // especificadores como pacotes a instalar e quebram com EINVALIDPACKAGENAME.
 import fs from 'fs';
 import path from 'path';
+import { pluginVersao } from './vite-plugin-versao';
 
 // ⭐ ONDE ESTÁ O .env.local
 // Por padrão o Vite só procura os arquivos .env na RAIZ do projeto (a pasta do
@@ -79,7 +80,8 @@ export default defineConfig(({
   return {
     // ⭐ Faz o Vite ler os .env do diretório onde eles realmente estão
     envDir,
-    plugins: [react()],
+    // pluginVersao: publica /versao.json para o aviso de versão nova
+    plugins: [react(), pluginVersao(__dirname)],
     // 🔧 PostCSS/Tailwind declarado EXPLICITAMENTE aqui. Não dependemos da
     //    descoberta automática do postcss.config.js — em alguns ambientes
     //    (ESM + cwd diferente) o Vite não carregava o config e servia o CSS

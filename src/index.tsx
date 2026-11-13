@@ -35,6 +35,7 @@ if ((import.meta as any)?.env?.PROD === true && typeof window !== 'undefined') {
 }
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
+import { AvisoNovaVersao } from './components/AvisoNovaVersao';
 import './index.css';
 import { clearWhatsAppCache } from './utils/clearWhatsAppCache';
 // Expõe função de limpeza globalmente
@@ -69,4 +70,10 @@ const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 // fetch disparar 2x — era a origem das chamadas repetidas (GET /api/pacientes,
 // usuários, operadoras) que apareciam em loop no log do servidor. Removendo o
 // StrictMode, cada efeito roda uma única vez.
-root.render(<App />);
+// Aviso "Nova versão disponível" fica fora do App: aparece em qualquer tela.
+root.render(
+  <>
+    <App />
+    <AvisoNovaVersao />
+  </>
+);
