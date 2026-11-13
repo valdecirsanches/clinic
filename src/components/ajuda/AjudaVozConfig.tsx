@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Volume2Icon, SaveIcon, Loader2Icon, SquareIcon, RefreshCwIcon } from 'lucide-react';
+import { Volume2Icon, SaveIcon, Loader2Icon, SquareIcon, RefreshCwIcon, PlayIcon, CheckIcon } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { API_BASE_URL } from '../../config/api';
@@ -16,6 +16,8 @@ interface Voz {
   genero: string | null;
   sotaque: string | null;
   categoria: string | null;
+  /** Amostra pronta da ElevenLabs (toca sem gastar créditos). */
+  previewUrl?: string | null;
 }
 
 interface Ajustes {
@@ -62,6 +64,9 @@ export function AjudaVozConfig() {
   const [vozes, setVozes] = useState<Voz[]>([]);
   const [erroVozes, setErroVozes] = useState('');
   const [testando, setTestando] = useState<'nao' | 'carregando' | 'tocando'>('nao');
+  /** Voz que está tocando (ou carregando) e erro do último teste. */
+  const [vozTocando, setVozTocando] = useState<string | null>(null);
+  const [erroTeste, setErroTeste] = useState('');
   const [salvando, setSalvando] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -108,27 +113,49 @@ export function AjudaVozConfig() {
   const pararTeste = () => {
     audioRef.current?.pause();
     setTestando('nao');
+    setVozTocando(null);
   };
 
-  const testar = async () => {
-    if (!config?.vozId) return;
-    pararTeste();
+  const tocar = async (url: string, liberar?: () => void) => {
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onended = () => {
+      setTestando('nao');
+      setVozTocando(null);
+      liberar?.();
+    };
+    await audio.play();
+    setTestando('tocando');
+  };
+
+  /**
+   * Ouve uma voz. Com amostra pronta da ElevenLabs e sem pedir os ajustes,
+   * toca a amostra (sem custo); senão o servidor gera a frase de teste com
+   * os ajustes atuais.
+   */
+  const testar = async (voz: {id: string;previewUrl?: string | null;}, comAjustes = false) => {
+    if (!config || !voz.id) return;
+    audioRef.current?.pause();
+    setErroTeste('');
+    setVozTocando(voz.id);
     setTestando('carregando');
     try {
-      const r = await enviar('/teste', { vozId: config.vozId, ajustes: config.ajustes });
+      if (voz.previewUrl && !comAjustes) {
+        try {
+          await tocar(voz.previewUrl);
+          return;
+        } catch {/* amostra indisponível: gera pelo servidor */}
+      }
+      const r = await enviar('/teste', { vozId: voz.id, ajustes: config.ajustes });
       if (!r.ok) throw await erroDe(r);
       const url = URL.createObjectURL(await r.blob());
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => {
-        setTestando('nao');
-        URL.revokeObjectURL(url);
-      };
-      await audio.play();
-      setTestando('tocando');
+      await tocar(url, () => URL.revokeObjectURL(url));
     } catch (e: any) {
       setTestando('nao');
-      error('Não foi possível testar a voz', e.message);
+      setVozTocando(null);
+      const motivo = e?.name === 'NotAllowedError' ? 'O navegador bloqueou o som. Clique de novo.' : e?.message || 'Falha ao tocar.';
+      setErroTeste(motivo);
+      error('Não foi possível ouvir a voz', motivo);
     }
   };
 
@@ -170,7 +197,7 @@ export function AjudaVozConfig() {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Ajuda por voz</h3>
           <p className="text-sm text-gray-500">
-            Narração da ajuda de cada tela (botão “?” no cabeçalho ou tecla F1), com voz da ElevenLabs
+            Narração da ajuda e do tour de cada tela (botão “Ajuda” no topo ou tecla F1), com voz da ElevenLabs
           </p>
         </div>
       </div>
@@ -203,55 +230,61 @@ export function AjudaVozConfig() {
 
           </label>
 
-          {/* Voz */}
+          {/* Voz: lista com ▶ em cada uma */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="ajuda-voz-select" className="text-sm font-medium text-gray-700">
-                Voz
-              </label>
+              <span className="text-sm font-medium text-gray-700">
+                Voz {config.vozNome && <span className="font-normal text-gray-500">— escolhida: {config.vozNome}</span>}
+              </span>
               <button
               type="button"
               onClick={() => carregarVozes(true)}
               className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-teal-700">
-
+              
                 <RefreshCwIcon className="h-3 w-3" /> Atualizar lista
               </button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <select
-              id="ajuda-voz-select"
-              value={config.vozId}
-              onChange={(e) => {
-                const v = vozes.find((x) => x.id === e.target.value);
-                pararTeste();
-                alterar({ vozId: e.target.value, vozNome: v?.nome || '' });
-              }}
-              className="flex-1 min-w-[220px] rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/30">
+            <p className="mb-2 text-xs text-gray-500">
+              Clique em <PlayIcon className="inline h-3 w-3" /> para ouvir e em “Usar esta” para escolher.
+            </p>
+            <ul role="radiogroup" aria-label="Vozes" className="max-h-72 overflow-y-auto divide-y divide-gray-100 rounded-lg border border-gray-200">
+              {vozes.map((v) => {
+              const escolhida = config.vozId === v.id;
+              const tocandoEsta = vozTocando === v.id;
+              return (
+                <li key={v.id} className={`flex items-center gap-3 px-3 py-2 ${escolhida ? 'bg-teal-50' : ''}`}>
+                    <button
+                    type="button"
+                    onClick={() => tocandoEsta && testando === 'tocando' ? pararTeste() : testar(v)}
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-teal-600 text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-300"
+                    aria-label={tocandoEsta ? `Parar ${v.nome}` : `Ouvir ${v.nome}`}
+                    title={tocandoEsta ? 'Parar' : 'Ouvir'}>
+                    
+                      {tocandoEsta && testando === 'carregando' ?
+                    <Loader2Icon className="h-4 w-4 animate-spin" /> :
+                    tocandoEsta && testando === 'tocando' ?
+                    <SquareIcon className="h-3.5 w-3.5" /> :
+                    <PlayIcon className="h-4 w-4" />}
+                    </button>
+                    <span className="min-w-0 flex-1 text-sm text-gray-800">{descreverVoz(v)}</span>
+                    <button
+                    type="button"
+                    role="radio"
+                    aria-checked={escolhida}
+                    onClick={() => alterar({ vozId: v.id, vozNome: v.nome })}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium ${escolhida ? 'bg-teal-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+                    
+                      {escolhida ? <><CheckIcon className="h-3.5 w-3.5" /> Escolhida</> : 'Usar esta'}
+                    </button>
+                  </li>);
 
-                <option value="">Selecione a voz…</option>
-                {config.vozId && !vozes.some((v) => v.id === config.vozId) &&
-              <option value={config.vozId}>{config.vozNome || config.vozId}</option>
-              }
-                {vozes.map((v) =>
-              <option key={v.id} value={v.id}>
-                    {descreverVoz(v)}
-                  </option>
-              )}
-              </select>
-              {testando === 'tocando' ?
-            <Button variant="secondary" onClick={pararTeste}>
-                  <SquareIcon className="w-4 h-4 mr-2" /> Parar
-                </Button> :
-
-            <Button variant="secondary" onClick={testar} disabled={!config.vozId || testando === 'carregando'}>
-                  {testando === 'carregando' ?
-              <Loader2Icon className="w-4 h-4 mr-2 animate-spin" /> :
-              <Volume2Icon className="w-4 h-4 mr-2" />}
-                  Ouvir
-                </Button>
+            })}
+              {!vozes.length &&
+            <li className="px-3 py-3 text-sm text-gray-500">{erroVozes ? 'Lista de vozes indisponível.' : 'Carregando vozes…'}</li>
             }
-            </div>
+            </ul>
             {erroVozes && <p className="mt-1 text-xs text-red-600">{erroVozes}</p>}
+            {erroTeste && <p role="alert" className="mt-1 text-xs text-red-600">Não foi possível ouvir: {erroTeste}</p>}
             <p className="mt-1 text-xs text-gray-500">
               É também a voz das respostas do assistente de voz. Para a melhor pronúncia em português, prefira vozes multilíngues ou vozes brasileiras da sua conta.
             </p>
@@ -280,11 +313,27 @@ export function AjudaVozConfig() {
 
           </div>
 
+          {config.vozId &&
+          <div>
+              <Button
+              variant="secondary"
+              onClick={() => vozTocando === config.vozId && testando === 'tocando' ? pararTeste() : testar({ id: config.vozId }, true)}
+              disabled={testando === 'carregando'}>
+              
+                {testando === 'carregando' && vozTocando === config.vozId ?
+              <Loader2Icon className="w-4 h-4 mr-2 animate-spin" /> :
+              <Volume2Icon className="w-4 h-4 mr-2" />}
+                Ouvir a voz escolhida com estes ajustes
+              </Button>
+            </div>
+          }
+
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
             <p className="text-xs text-gray-500">
               Cada explicação é gerada uma vez e guardada no servidor. Trocar a voz ou os ajustes gera novos
               áudios conforme forem ouvidos.
             </p>
+            {alterado && <span className="text-xs font-medium text-amber-700">Alterações não salvas</span>}
             <Button onClick={salvar} disabled={salvando || !alterado}>
               {salvando ? <Loader2Icon className="w-4 h-4 mr-2 animate-spin" /> : <SaveIcon className="w-4 h-4 mr-2" />}
               Salvar
