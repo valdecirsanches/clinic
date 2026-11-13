@@ -5,7 +5,10 @@ export interface AtivacaoAssistente {
   /** Ligado na clínica E chave da OpenAI configurada no servidor */
   ativo: boolean;
   ativoNaClinica: boolean;
+  /** Modelo de linguagem (entende os pedidos) configurado no servidor */
   configurado: boolean;
+  /** Quem ouve e fala: ElevenLabs, OpenAI ou nenhum */
+  voz?: 'elevenlabs' | 'openai' | null;
   alteradoPor: string | null;
   alteradoEm: string | null;
   valorUnitario: number;

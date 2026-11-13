@@ -15,63 +15,16 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const router = express.Router();
-const dbGlobal = require('../databaseGlobal');
 const { exigirSuperAdmin, lerCorpoTexto } = require('../services/superAdmin');
 const elevenLabs = require('../services/elevenLabs');
 const { buscarTopico, textoNarracao } = require('../ajuda/catalogo');
+const { lerConfig, gravarConfig, normalizarConfig } = require('../ajuda/configVoz');
 
 router.use(lerCorpoTexto);
 
-const CHAVE_CONFIG = 'ajuda_voz';
 const PASTA_CACHE = process.env.AJUDA_VOZ_CACHE_DIR ||
 path.join(__dirname, '..', 'cache', 'ajuda-voz');
 const FRASE_TESTE = 'Olá! Esta é a voz que vai explicar as telas do EasyClin para a sua equipe.';
-
-const PADRAO = Object.freeze({
-  ativo: false,
-  vozId: '',
-  vozNome: '',
-  ajustes: elevenLabs.normalizarAjustes({})
-});
-
-function normalizarConfig(bruto) {
-  const c = bruto && typeof bruto === 'object' ? bruto : {};
-  const vozId = elevenLabs.vozValida(c.vozId) ? String(c.vozId) : '';
-  return {
-    ativo: Boolean(c.ativo) && Boolean(vozId),
-    vozId,
-    vozNome: String(c.vozNome || '').slice(0, 80),
-    ajustes: elevenLabs.normalizarAjustes(c.ajustes)
-  };
-}
-
-async function lerConfig() {
-  try {
-    const row = await dbGlobal.
-    prepare('SELECT valor FROM configuracoes_globais WHERE chave = ?').
-    get(CHAVE_CONFIG);
-    if (!row) return { ...PADRAO };
-    let valor = row.valor;
-    try {valor = JSON.parse(row.valor);} catch (e) {}
-    return normalizarConfig(valor);
-  } catch (err) {
-    console.error('❌ [ajuda-voz] Erro ao ler configuração:', err.message);
-    return { ...PADRAO };
-  }
-}
-
-async function gravarConfig(config) {
-  const valor = JSON.stringify(config);
-  const agora = new Date().toISOString();
-  const upd = await dbGlobal.
-  prepare('UPDATE configuracoes_globais SET valor = ?, atualizadoEm = ? WHERE chave = ?').
-  run(valor, agora, CHAVE_CONFIG);
-  if (!upd || upd.changes === 0) {
-    await dbGlobal.
-    prepare('INSERT INTO configuracoes_globais (id, chave, valor, atualizadoEm) VALUES (?, ?, ?, ?)').
-    run(`cfg${Date.now()}`, CHAVE_CONFIG, valor, agora);
-  }
-}
 
 // ---------- cache em disco ----------
 

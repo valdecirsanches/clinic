@@ -16,6 +16,8 @@ const express = require('express');
 const dbGlobal = require('../databaseGlobal');
 const A = require('../services/assistenteAgenda');
 const IA = require('../services/assistenteOpenAI');
+// Ouvir e falar: ElevenLabs quando configurada (senão OpenAI). Entender: OpenAI.
+const VOZ = require('../services/vozAssistente');
 const assinatura = require('../services/assinaturaCalculo');
 const acoes = require('../assistente/acoes');
 const assistente = require('../assistente');
@@ -83,7 +85,7 @@ async function precoDoAssistente(clinicaId) {
   }
 }
 
-async function exigirUsuario(req, res, { exigirAtivacao = true } = {}) {
+async function exigirUsuario(req, res, { exigirAtivacao = true, precisa = 'ia' } = {}) {
   const usuarioId = String(req.usuario && req.usuario.id || req.body && req.body.usuarioId || req.query.usuarioId || '').trim();
   const clinicaId = String(req.body && req.body.clinicaId || req.query.clinicaId || '').trim();
   if (!usuarioId || !clinicaId) {
@@ -96,8 +98,12 @@ async function exigirUsuario(req, res, { exigirAtivacao = true } = {}) {
       res.status(403).json({ error: 'Usuário inativo ou não encontrado.' });
       return null;
     }
-    if (!IA.configurado()) {
-      res.status(503).json({ error: 'O assistente não está configurado: defina OPENAI_API_KEY no server/.env.local e reinicie o backend.' });
+    if (precisa === 'voz' ? !VOZ.provedor() : !IA.configurado()) {
+      res.status(503).json({
+        error: precisa === 'voz' ?
+        'A voz do assistente não está configurada: defina ELEVENLABS_API_KEY no server/.env.local e reinicie o backend.' :
+        'O assistente ainda não entende pedidos: falta a chave do modelo de linguagem (OPENAI_API_KEY) no server/.env.local. A voz (ElevenLabs) já é suficiente para ouvir e falar.'
+      });
       return null;
     }
     if (exigirAtivacao && !(await lerAtivacao(clinicaId)).ativo) {
@@ -125,7 +131,7 @@ function agoraDoPedido(body) {
 // ---------------------------------------------------------------------------
 
 router.get('/status', (req, res) => {
-  res.json({ configurado: IA.configurado() });
+  res.json({ configurado: IA.configurado(), voz: VOZ.provedor() });
 });
 
 // GET /api/assistente/ativacao?clinicaId= → situação + preço por pedido
@@ -139,6 +145,7 @@ router.get('/ativacao', async (req, res) => {
     alteradoPor: config.alteradoPor || null,
     alteradoEm: config.alteradoEm || null,
     configurado: IA.configurado(),
+    voz: VOZ.provedor(),
     ...preco
   });
 });
@@ -161,10 +168,10 @@ router.post('/ativacao', async (req, res) => {
 });
 
 router.post('/transcrever', async (req, res) => {
-  const usuario = await exigirUsuario(req, res);
+  const usuario = await exigirUsuario(req, res, { precisa: 'voz' });
   if (!usuario) return;
   try {
-    const texto = await IA.transcrever(req.body.audioBase64, req.body.mime, req.body.contexto === 'prontuario' ? 'prontuario' : 'agenda');
+    const texto = await VOZ.transcrever(req.body.audioBase64, req.body.mime, req.body.contexto === 'prontuario' ? 'prontuario' : 'agenda');
     res.json({ texto });
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -271,13 +278,13 @@ router.post('/prontuario', async (req, res) => {
   }
 });
 
-// POST /api/assistente/falar { texto } → { audioBase64, mime } (voz feminina)
+// POST /api/assistente/falar { texto } → { audioBase64, mime } (voz escolhida pelo super admin)
 // Faz parte do pedido já cobrado; não conta como uso à parte.
 router.post('/falar', async (req, res) => {
-  const usuario = await exigirUsuario(req, res);
+  const usuario = await exigirUsuario(req, res, { precisa: 'voz' });
   if (!usuario) return;
   try {
-    res.json(await IA.falar(req.body.texto));
+    res.json(await VOZ.falar(req.body.texto));
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

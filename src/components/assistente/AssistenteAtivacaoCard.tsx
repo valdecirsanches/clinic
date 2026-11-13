@@ -62,9 +62,16 @@ export function AssistenteAtivacaoCard({ clinicaId, usuarioId }: AssistenteAtiva
                 {ativacao.alteradoEm && ` em ${new Date(ativacao.alteradoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`}
               </p>
             }
+            {ativacao?.voz &&
+            <p className="text-xs text-gray-500 mt-1">
+                Voz (ouvir e falar): {ativacao.voz === 'elevenlabs' ? 'ElevenLabs, com a voz escolhida nas Configurações Globais' : 'OpenAI'}
+              </p>
+            }
             {ativacao && !ativacao.configurado &&
             <p className="text-xs text-amber-700 mt-1">
-                O servidor ainda não tem a chave da OpenAI. Peça ao suporte para configurar antes de ativar.
+                {ativacao.voz === 'elevenlabs' ?
+              'A voz já está pronta pela ElevenLabs. Para o assistente entender os pedidos, o servidor ainda precisa da chave do modelo de linguagem (OPENAI_API_KEY). Peça ao suporte para configurar antes de ativar.' :
+              'O servidor ainda não tem as chaves do assistente: ElevenLabs para ouvir e falar e OpenAI para entender os pedidos. Peça ao suporte para configurar antes de ativar.'}
               </p>
             }
             {(erro || erroSalvar) && <p role="alert" className="text-xs text-red-700 mt-1">{erroSalvar || erro}</p>}

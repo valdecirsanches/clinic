@@ -135,6 +135,54 @@ async function sintetizar(voiceId, texto, ajustes = {}) {
   return resposta.buffer;
 }
 
+const EXTENSOES = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-m4a': 'm4a' };
+
+/**
+ * Fala → texto (Scribe). Lança Error com motivo legível em caso de falha.
+ * Modelo: ELEVENLABS_STT_MODEL (padrão scribe_v2).
+ * @returns {Promise<string>}
+ */
+async function transcrever(buffer, mime = 'audio/webm', { idioma = 'pt' } = {}) {
+  if (!configurado()) throw new Error('Defina ELEVENLABS_API_KEY no server/.env.local');
+  if (!Buffer.isBuffer(buffer) || buffer.length < 1000) {
+    throw new Error('Áudio muito curto. Segure o microfone e fale o pedido.');
+  }
+  const tipo = String(mime || 'audio/webm').split(';')[0];
+  const form = new FormData();
+  form.append('file', new Blob([buffer], { type: tipo }), `pedido.${EXTENSOES[tipo] || 'webm'}`);
+  form.append('model_id', String(process.env.ELEVENLABS_STT_MODEL || 'scribe_v2').trim());
+  if (idioma) form.append('language_code', idioma);
+  form.append('tag_audio_events', 'false');
+
+  const controle = new AbortController();
+  const timer = setTimeout(() => controle.abort(), 45000);
+  try {
+    const r = await fetch(`${API}/speech-to-text`, {
+      method: 'POST',
+      headers: { 'xi-api-key': chave(), Accept: 'application/json' },
+      body: form,
+      signal: controle.signal
+    });
+    const texto = await r.text();
+    let dados = null;
+    try {dados = JSON.parse(texto);} catch (e) {}
+    if (!r.ok) {
+      const detalhe = dados && dados.detail;
+      const motivo = typeof detalhe === 'string' ? detalhe :
+      detalhe && (detalhe.message || detalhe.status) || `HTTP ${r.status}`;
+      if (r.status === 401) throw new Error('ElevenLabs: chave recusada. Confira ELEVENLABS_API_KEY.');
+      if (r.status === 429) throw new Error('ElevenLabs: limite ou créditos esgotados. Confira a conta.');
+      throw new Error(`ElevenLabs: ${motivo}`);
+    }
+    return String(dados && dados.text || '').trim();
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('A ElevenLabs demorou demais para transcrever. Tente de novo.');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 module.exports = {
   chave,
   modelo,
@@ -144,5 +192,6 @@ module.exports = {
   vozValida,
   carregarVozes,
   sintetizar,
+  transcrever,
   VOZES_PADRAO
 };

@@ -378,12 +378,8 @@ export function Header({
               </button>
             }
 
-            <Button variant="ghost" onClick={onLogout}>
-              <LogOutIcon className="w-4 h-4 lg:mr-2" />
-              <span className="hidden lg:inline">Sair</span>
-            </Button>
 
-            {/* ⭐ Menu do usuário: nome + foto; ao clicar, Segurança e Aparência */}
+            {/* ⭐ Menu do usuário: nome + foto; ao clicar, Segurança e Aparência (Sair fica à direita dele) */}
             <div className="relative ml-1">
               <button
                 type="button"
@@ -454,6 +450,12 @@ export function Header({
                 </>
               }
             </div>
+
+            {/* Sair: sempre na extrema direita */}
+            <Button variant="ghost" onClick={onLogout}>
+              <LogOutIcon className="w-4 h-4 lg:mr-2" />
+              <span className="hidden lg:inline">Sair</span>
+            </Button>
           </div>
         </div>
       </header>

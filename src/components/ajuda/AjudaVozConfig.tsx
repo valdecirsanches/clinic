@@ -253,7 +253,7 @@ export function AjudaVozConfig() {
             </div>
             {erroVozes && <p className="mt-1 text-xs text-red-600">{erroVozes}</p>}
             <p className="mt-1 text-xs text-gray-500">
-              Para a melhor pronúncia em português, prefira vozes multilíngues ou vozes brasileiras da sua conta.
+              É também a voz das respostas do assistente de voz. Para a melhor pronúncia em português, prefira vozes multilíngues ou vozes brasileiras da sua conta.
             </p>
           </div>
 
