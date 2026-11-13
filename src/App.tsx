@@ -35,6 +35,7 @@ import { BackupLocalPage } from './pages/BackupLocalPage';
 import { BackupLocalAgendador } from './components/backup/BackupLocalAgendador';
 import { LimitePlanoAviso } from './components/assinatura/LimitePlanoAviso';
 import { VideoDemoPage } from './pages/VideoDemoPage';
+import { AjudaPainel } from './components/ajuda/AjudaPainel';
 import { MemedProfissionaisPage } from './components/MemedProfissionaisPage';
 import { MedicamentosPage } from './components/MedicamentosPage';
 import { normalizarChaveData, slotValeNaData } from './utils/recorrenciaAgenda';
@@ -351,6 +352,19 @@ function MainApp() {
   // Aparência por usuário: sem tema salvo = padrão. Sem login, fica a
   // última aparência deste navegador (aplicada no index.tsx).
   const [showAparencia, setShowAparencia] = useState(false);
+  // Ajuda da tela atual: botão "?" no cabeçalho ou tecla F1
+  const [showAjuda, setShowAjuda] = useState(false);
+  const temSessao = Boolean(sessao?.usuario);
+  useEffect(() => {
+    if (!temSessao) return;
+    const teclaAjuda = (e: KeyboardEvent) => {
+      if (e.key !== 'F1') return;
+      e.preventDefault(); // sem isso o navegador abre a ajuda dele
+      setShowAjuda((aberta) => !aberta);
+    };
+    window.addEventListener('keydown', teclaAjuda);
+    return () => window.removeEventListener('keydown', teclaAjuda);
+  }, [temSessao]);
   const temaDoUsuario = sessao?.usuario ? JSON.stringify(sessao.usuario.tema ?? null) : null;
   useEffect(() => {
     if (temaDoUsuario === null) return;
@@ -2220,7 +2234,8 @@ function MainApp() {
             onSelecionarClinica={selecionarClinica}
             onNavigate={handleNavigate}
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-            onAparencia={() => setShowAparencia(true)} />
+            onAparencia={() => setShowAparencia(true)}
+            onAjuda={() => setShowAjuda(true)} />
           {showAparencia &&
           <AparenciaModal
             usuarioId={sessao.usuario.id}
@@ -2274,6 +2289,13 @@ function MainApp() {
         </div>
 
         <WhatsAppAutoActivator />
+        {showAjuda &&
+        <AjudaPainel
+          telaAtual={currentPage}
+          prontuarioStep={prontuarioStep}
+          tipoUsuario={sessao.usuario.tipo}
+          onFechar={() => setShowAjuda(false)} />
+        }
         <ToastContainer toasts={toasts} onClose={removeToast} />
         <DialogContainer dialogs={dialogs} onClose={removeDialog} />
         {sessao.clinicaAtual?.id &&

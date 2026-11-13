@@ -26,3 +26,6 @@ dist-ssr
 # Arquivos enviados (fotos/documentos de pacientes) e segredos locais do servidor
 src/server/uploads/
 src/server/downloads/
+
+# Áudios gerados pela ajuda por voz (recriados sob demanda)
+src/server/cache/

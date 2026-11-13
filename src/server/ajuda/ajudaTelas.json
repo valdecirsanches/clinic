@@ -1,0 +1,1004 @@
+{
+  "versao": 1,
+  "topicos": [
+    {
+      "id": "inicio",
+      "grupo": "Primeiros passos",
+      "titulo": "Como usar o EasyClin",
+      "resumo": "O EasyClin reúne agenda, pacientes, prontuário, financeiro e WhatsApp da clínica em um só lugar.",
+      "passos": [
+        "Use o menu do lado esquerdo para trocar de tela. No celular, ele abre pelo botão de três linhas no alto.",
+        "No cabeçalho você escolhe a clínica em que está trabalhando, vê as mensagens novas de pacientes e o estado do WhatsApp.",
+        "Clicando no seu nome, no canto direito, você troca a senha e muda a aparência do sistema.",
+        "O botão de ajuda, com o ponto de interrogação, explica a tela em que você está. A tecla F1 faz o mesmo."
+      ],
+      "dicas": [
+        "O assistente, no canto de baixo da tela, entende pedidos falados ou escritos, como marcar uma consulta."
+      ],
+      "palavras": [
+        "menu",
+        "navegar",
+        "cabeçalho",
+        "clínica",
+        "começar",
+        "visão geral"
+      ]
+    },
+    {
+      "id": "dashboard",
+      "grupo": "Atendimento",
+      "titulo": "Dashboard",
+      "resumo": "O dashboard mostra um resumo do dia da clínica: consultas marcadas, atendimentos e números principais.",
+      "passos": [
+        "Confira as consultas de hoje e a situação de cada uma.",
+        "Use os cartões de números para acompanhar o movimento da clínica.",
+        "Se aparecer o aviso para selecionar uma clínica, escolha a clínica no alto da tela."
+      ],
+      "dicas": [
+        "Para agir sobre uma consulta, abra a Agenda ou a Fila de chegada pelo menu."
+      ],
+      "palavras": [
+        "início",
+        "resumo",
+        "painel",
+        "indicadores"
+      ]
+    },
+    {
+      "id": "agenda",
+      "grupo": "Atendimento",
+      "titulo": "Agenda",
+      "resumo": "Na agenda você marca, confirma, remarca e cancela consultas de cada profissional, dia a dia.",
+      "passos": [
+        "Escolha o dia no calendário do menu lateral e o profissional no seletor.",
+        "Clique em um horário disponível, ou no botão Nova Consulta, para marcar. Busque o paciente pelo nome e salve.",
+        "Clique em uma consulta para mudar o status: confirmada, compareceu, faltou ou realizada.",
+        "Para cancelar, use Cancelar Consulta e informe o motivo. Para mover várias consultas para outro profissional, use Transferir.",
+        "Quando o paciente chegar, marque a chegada para ele entrar na Fila de atendimento."
+      ],
+      "dicas": [
+        "Clique com o botão direito em um dia do calendário para abrir ou fechar a agenda daquele dia.",
+        "Os lembretes e pedidos de confirmação por WhatsApp são configurados em Configurações da Clínica."
+      ],
+      "palavras": [
+        "marcar",
+        "consulta",
+        "agendar",
+        "remarcar",
+        "cancelar",
+        "encaixe",
+        "horário",
+        "transferir"
+      ]
+    },
+    {
+      "id": "fila_atendimento",
+      "grupo": "Atendimento",
+      "titulo": "Fila de chegada",
+      "resumo": "A fila mostra os pacientes que já chegaram e estão esperando, com o tempo de espera de cada um.",
+      "passos": [
+        "Ordene a fila por ordem de chegada ou por horário marcado.",
+        "Clique em Chamar para chamar o paciente e em Atender para abrir o prontuário.",
+        "Durante o atendimento você pode Pausar, Retomar e Finalizar.",
+        "Para consulta online, escolha Online: o sistema cria a sala de vídeo e envia o link ao paciente. Use Enviar Link ou Reabrir Sala se precisar."
+      ],
+      "dicas": [
+        "Cancelar Chegada tira o paciente da fila sem cancelar a consulta."
+      ],
+      "palavras": [
+        "fila",
+        "espera",
+        "chegada",
+        "chamar",
+        "atender",
+        "videochamada",
+        "online",
+        "teleconsulta"
+      ]
+    },
+    {
+      "id": "agenda_profissional",
+      "grupo": "Atendimento",
+      "titulo": "Agendas dos profissionais",
+      "resumo": "Aqui você define os dias e horários em que cada profissional atende. A agenda do dia é montada a partir dessa configuração.",
+      "passos": [
+        "Clique em Nova Agenda e escolha o profissional.",
+        "Monte os turnos da semana: dias, horário de início e fim e duração de cada consulta. Também é possível incluir horários avulsos ou limitar um turno a datas específicas.",
+        "Confira o resumo e clique em Salvar Configuração.",
+        "Use Abrir ou Fechar para suspender uma agenda, e Dia Extra para abrir um dia fora da rotina."
+      ],
+      "dicas": [
+        "Só é possível fechar uma agenda que não tenha consultas futuras marcadas.",
+        "Duplicar para a semana oposta ajuda quem alterna semanas."
+      ],
+      "palavras": [
+        "horários",
+        "turno",
+        "grade",
+        "dia extra",
+        "escala"
+      ]
+    },
+    {
+      "id": "pacientes",
+      "grupo": "Atendimento",
+      "titulo": "Pacientes",
+      "resumo": "O cadastro de pacientes guarda dados pessoais, contatos, convênio, documentos, dependentes e o histórico de consultas e pagamentos.",
+      "passos": [
+        "Busque o paciente pelo nome, CPF ou telefone.",
+        "Clique em Novo Paciente para cadastrar. Preencha dados pessoais, contatos e endereço e, se houver, o convênio ou a empresa.",
+        "Na ficha do paciente veja as consultas, o financeiro e os documentos. O botão Prontuário abre o histórico clínico.",
+        "Para desativar um cadastro, use cancelar e informe o motivo. Excluir apaga todos os dados do paciente e não pode ser desfeito."
+      ],
+      "dicas": [
+        "Mantenha o celular atualizado: lembretes, cobranças e documentos para assinar vão por WhatsApp."
+      ],
+      "palavras": [
+        "cadastro",
+        "paciente",
+        "ficha",
+        "dependente",
+        "cpf",
+        "aniversário"
+      ]
+    },
+    {
+      "id": "prontuarios",
+      "grupo": "Atendimento",
+      "titulo": "Prontuários",
+      "resumo": "Nesta tela você consulta o histórico clínico de um paciente e inicia ou continua um atendimento.",
+      "passos": [
+        "Use Buscar Paciente para escolher o paciente.",
+        "Veja a lista de atendimentos, com o resumo de cada consulta e se está assinado ou pendente.",
+        "Clique em Novo Atendimento para começar, ou em Continuar Atendimento para retomar um que ficou aberto.",
+        "Use Copiar ou Imprimir para levar o resumo de um atendimento."
+      ],
+      "dicas": [],
+      "palavras": [
+        "histórico",
+        "prontuário",
+        "atendimentos anteriores",
+        "resumo clínico"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento",
+      "grupo": "Prontuário",
+      "titulo": "Atendimento no prontuário",
+      "resumo": "O prontuário é dividido em abas, uma para cada parte da consulta: anamnese, exame físico, diagnóstico, evolução, exames, prescrições, relatórios, atestado, imagens e odontograma.",
+      "passos": [
+        "Percorra as abas no alto ou no menu lateral. Alt mais um número, de 1 a 9, troca de aba pelo teclado.",
+        "O que você digita é guardado como rascunho automaticamente. Control mais S salva a aba aberta.",
+        "A barra de status mostra se há alterações pendentes ou se tudo foi salvo.",
+        "Ao terminar, finalize o atendimento. Se tentar sair com algo não salvo, o sistema avisa."
+      ],
+      "dicas": [
+        "Você pode ditar o conteúdo pelo assistente: ele preenche os campos e você revisa antes de salvar.",
+        "Abra a ajuda dentro de cada aba para ouvir a explicação daquela parte."
+      ],
+      "palavras": [
+        "prontuário",
+        "consulta",
+        "atendimento",
+        "abas",
+        "atalhos",
+        "ditado"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:resumo_atendimento",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: resumo do atendimento",
+      "resumo": "O resumo mostra, logo ao abrir, as informações importantes do paciente: alergias, doenças crônicas e medicamentos em uso, além do que já foi lançado neste atendimento.",
+      "passos": [
+        "Confira alergias e medicamentos em uso antes de prescrever.",
+        "Use as outras abas para preencher cada parte da consulta."
+      ],
+      "dicas": [],
+      "palavras": [
+        "alergias",
+        "medicamentos em uso",
+        "doenças crônicas"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:anamnese",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: anamnese",
+      "resumo": "Na anamnese você registra a queixa principal e a história do paciente.",
+      "passos": [
+        "Preencha a queixa principal e a história da doença atual.",
+        "Complete os antecedentes, alergias e medicamentos em uso quando for o caso.",
+        "Clique em Salvar Anamnese, ou use Control mais S."
+      ],
+      "dicas": [
+        "Alergias e doenças crônicas lançadas aqui aparecem no resumo dos próximos atendimentos."
+      ],
+      "palavras": [
+        "queixa",
+        "história",
+        "antecedentes"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:exame_fisico",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: exame físico",
+      "resumo": "No exame físico você lança os sinais vitais e as observações do exame.",
+      "passos": [
+        "Preencha altura, peso, pressão arterial, pulso, temperatura, saturação, frequência respiratória e glicemia.",
+        "Escreva as observações do exame físico.",
+        "Esta aba salva sozinha enquanto você digita."
+      ],
+      "dicas": [],
+      "palavras": [
+        "sinais vitais",
+        "pressão",
+        "peso",
+        "altura",
+        "temperatura",
+        "saturação"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:diagnostico",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: diagnóstico",
+      "resumo": "No diagnóstico você registra a hipótese diagnóstica com o CID-10.",
+      "passos": [
+        "Busque o diagnóstico principal pelo código ou pelo nome do CID-10.",
+        "Inclua outros diagnósticos, se houver, e as observações.",
+        "Clique em Salvar Diagnóstico."
+      ],
+      "dicas": [
+        "O CID escolhido pode ser usado depois no atestado, nos exames e nos relatórios."
+      ],
+      "palavras": [
+        "cid",
+        "hipótese",
+        "doença"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:evolucao",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: evolução",
+      "resumo": "A evolução é o registro de cada retorno ou acompanhamento do paciente, em ordem de data.",
+      "passos": [
+        "Escreva a evolução no editor. Control mais B deixa em negrito e Control mais I em itálico.",
+        "Clique em Adicionar evolução.",
+        "Abaixo aparece o histórico das evoluções anteriores."
+      ],
+      "dicas": [],
+      "palavras": [
+        "retorno",
+        "acompanhamento",
+        "evolução clínica"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:exames",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: pedidos de exame",
+      "resumo": "Aqui você gera pedidos de exame para imprimir ou enviar ao paciente.",
+      "passos": [
+        "Escolha entre Exames de Rotina, com uma lista pronta para marcar, ou Solicitação Livre.",
+        "Informe o médico solicitante, o pedido detalhado e a justificativa clínica, que alguns convênios exigem.",
+        "Use Padrões para aproveitar pedidos que você usa sempre, ou salvar o atual como padrão.",
+        "Salve e imprima."
+      ],
+      "dicas": [],
+      "palavras": [
+        "exame",
+        "pedido",
+        "solicitação",
+        "laboratório",
+        "rotina"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:prescricoes",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: prescrições",
+      "resumo": "Nas prescrições você monta a receita do paciente, no receituário próprio da clínica ou pela Memed.",
+      "passos": [
+        "Escolha Própria ou Memed.",
+        "Na prescrição própria, adicione os medicamentos com a posologia. Marque Controle Especial quando for receita controlada.",
+        "Use Padrões para receitas frequentes.",
+        "Salve e imprima. A receita fica no histórico do paciente."
+      ],
+      "dicas": [
+        "Para usar a Memed, o profissional precisa estar ativo em Memed, no menu Configurações."
+      ],
+      "palavras": [
+        "receita",
+        "medicamento",
+        "memed",
+        "posologia",
+        "controle especial"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:relatorios",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: relatórios",
+      "resumo": "Aqui você escreve relatórios médicos para outros profissionais, empresas ou outros solicitantes.",
+      "passos": [
+        "Informe título, tipo de relatório, data e destinatário.",
+        "Escreva o conteúdo, ou carregue um padrão.",
+        "Salve e imprima. Relatórios anteriores ficam no histórico e podem ser carregados de novo."
+      ],
+      "dicas": [],
+      "palavras": [
+        "relatório",
+        "laudo",
+        "declaração"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:atestado",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: atestado",
+      "resumo": "O atestado segue o padrão da Lei 14.724 de 2023, com os campos obrigatórios.",
+      "passos": [
+        "Escolha o médico, a data e o tipo: comparecimento, com horário de chegada e saída, ou afastamento, com o número de dias.",
+        "Inclua o CID, se o paciente autorizar.",
+        "Salve e imprima."
+      ],
+      "dicas": [],
+      "palavras": [
+        "atestado",
+        "afastamento",
+        "comparecimento",
+        "declaração"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:imagens",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: imagens e documentos",
+      "resumo": "Nesta aba ficam as fotos, exames e documentos anexados ao paciente.",
+      "passos": [
+        "Use Upload para anexar um arquivo, ou Digitalizar para fotografar um documento com a câmera.",
+        "Solicitar via WhatsApp pede ao paciente que envie o documento pelo celular.",
+        "Clique em um arquivo para ver, baixar ou escrever observações."
+      ],
+      "dicas": [],
+      "palavras": [
+        "anexo",
+        "foto",
+        "documento",
+        "upload",
+        "digitalizar",
+        "imagem"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:odontograma",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: odontograma",
+      "resumo": "O odontograma registra a condição de cada dente do paciente.",
+      "passos": [
+        "Clique no dente e escolha a condição, como cárie, restauração ou ausente.",
+        "Escreva uma observação, se quiser.",
+        "As marcações são salvas sozinhas logo depois de feitas. Use Imprimir para levar o odontograma."
+      ],
+      "dicas": [],
+      "palavras": [
+        "dente",
+        "odontologia",
+        "dentista"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:memed",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: prescrição Memed",
+      "resumo": "A Memed é a prescrição digital: a receita sai assinada digitalmente e o paciente recebe pelo celular.",
+      "passos": [
+        "Clique em Abrir Nova Prescrição Memed, monte a receita na janela da Memed e emita.",
+        "As prescrições recentes aparecem logo abaixo e ficam no histórico do paciente.",
+        "Se aparecer Requer Configuração, ative sua conta com o botão Ativar Prescrição Memed Agora."
+      ],
+      "dicas": [
+        "A Memed precisa estar ativada nas Configurações Globais, e o seu cadastro precisa ter conselho e UF."
+      ],
+      "palavras": [
+        "memed",
+        "receita digital",
+        "prescrição digital"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:procedimento",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: procedimentos realizados",
+      "resumo": "Registre os procedimentos feitos no atendimento e colete a assinatura do paciente.",
+      "passos": [
+        "Clique em Novo Procedimento, escolha o procedimento e o profissional.",
+        "Use Assinar para o paciente assinar na tela, e Travar para impedir mudanças no grupo.",
+        "Imprimir Tudo gera o registro completo."
+      ],
+      "dicas": [],
+      "palavras": [
+        "procedimento",
+        "assinatura",
+        "realizado"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:avaliacao",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário: avaliação e orçamento",
+      "resumo": "Na avaliação você planeja os procedimentos do tratamento, com valores e tempo estimado.",
+      "passos": [
+        "Clique em Nova Avaliação e adicione os procedimentos.",
+        "Confira o subtotal e o total geral.",
+        "Peça a assinatura do paciente para confirmar e use Travar para fechar a avaliação."
+      ],
+      "dicas": [],
+      "palavras": [
+        "orçamento",
+        "plano de tratamento",
+        "avaliação",
+        "valor"
+      ]
+    },
+    {
+      "id": "prontuario_atendimento:resumo",
+      "grupo": "Prontuário",
+      "titulo": "Prontuário completo",
+      "resumo": "Esta aba mostra o prontuário inteiro do paciente: todos os atendimentos, assinados e pendentes.",
+      "passos": [
+        "Abra um atendimento para ver queixa, exame, diagnóstico, prescrições, exames, relatório e atestado.",
+        "Use Retomar para continuar um atendimento anterior e Imprimir para gerar o prontuário."
+      ],
+      "dicas": [],
+      "palavras": [
+        "histórico completo",
+        "impressão do prontuário"
+      ]
+    },
+    {
+      "id": "clinicas",
+      "grupo": "Cadastros",
+      "titulo": "Clínicas",
+      "resumo": "Aqui ficam os dados de cada clínica: nome, CNPJ, endereço, contatos e logotipo, que aparecem nos documentos impressos.",
+      "passos": [
+        "Clique em Nova Clínica para cadastrar.",
+        "Clique duas vezes em uma clínica para editar.",
+        "Excluir uma clínica apaga todos os pacientes, consultas, prontuários e arquivos dela, e não pode ser desfeito."
+      ],
+      "dicas": [],
+      "palavras": [
+        "clínica",
+        "unidade",
+        "cnpj",
+        "logo"
+      ]
+    },
+    {
+      "id": "convenios",
+      "grupo": "Cadastros",
+      "titulo": "Convênios",
+      "resumo": "Cadastre os convênios atendidos pela clínica e os planos de cada um.",
+      "passos": [
+        "Clique em Novo Convênio e preencha os dados, o endereço, os dados bancários e os prazos.",
+        "Salve o convênio. Depois, em Planos Vinculados, digite o nome do plano e clique em Adicionar."
+      ],
+      "dicas": [
+        "O convênio e o plano escolhidos no cadastro do paciente aparecem na agenda e nas cobranças."
+      ],
+      "palavras": [
+        "convênio",
+        "plano",
+        "operadora de saúde"
+      ]
+    },
+    {
+      "id": "empresas_conveniadas",
+      "grupo": "Cadastros",
+      "titulo": "Empresas conveniadas",
+      "resumo": "Cadastre as empresas parceiras e suas unidades, para vincular funcionários como pacientes.",
+      "passos": [
+        "Clique em Nova Empresa e cadastre as unidades.",
+        "No cadastro do paciente, escolha a empresa e a unidade.",
+        "Use o relatório de atendimentos ou de pacientes de cada empresa, escolhendo o período, e imprima."
+      ],
+      "dicas": [],
+      "palavras": [
+        "empresa",
+        "parceira",
+        "unidade",
+        "relatório de empresa"
+      ]
+    },
+    {
+      "id": "especialidades",
+      "grupo": "Cadastros",
+      "titulo": "Especialidades",
+      "resumo": "Lista das especialidades médicas e odontológicas usadas no cadastro dos profissionais.",
+      "passos": [
+        "Clique em Nova Especialidade, informe o nome e o tipo: médica, odontológica ou ambas.",
+        "Desmarque Especialidade ativa para escondê-la sem apagar."
+      ],
+      "dicas": [],
+      "palavras": [
+        "especialidade",
+        "área"
+      ]
+    },
+    {
+      "id": "medicamentos",
+      "grupo": "Cadastros",
+      "titulo": "Banco de medicamentos",
+      "resumo": "A base de medicamentos é usada para sugerir nomes na prescrição.",
+      "passos": [
+        "Use Importar Base ANVISA para carregar os medicamentos registrados.",
+        "Busque pelo nome e veja a tarja de cada um.",
+        "Limpar Base apaga toda a lista."
+      ],
+      "dicas": [],
+      "palavras": [
+        "remédio",
+        "anvisa",
+        "tarja"
+      ]
+    },
+    {
+      "id": "operadoras",
+      "grupo": "Cadastros",
+      "perfis": [
+        "super_admin"
+      ],
+      "titulo": "Operadoras",
+      "resumo": "A operadora é a empresa dona de uma ou mais clínicas. Cada operadora tem um plano do sistema.",
+      "passos": [
+        "Clique em Nova Operadora e informe o CNPJ. Os dados da Receita são preenchidos sozinhos.",
+        "Envie o logotipo e escolha o plano.",
+        "Excluir uma operadora apaga todas as clínicas, usuários e pacientes dela."
+      ],
+      "dicas": [],
+      "palavras": [
+        "operadora",
+        "empresa",
+        "grupo"
+      ]
+    },
+    {
+      "id": "planos_saude",
+      "grupo": "Cadastros",
+      "titulo": "Planos de saúde",
+      "resumo": "Lista dos planos de saúde aceitos pela clínica.",
+      "passos": [
+        "Clique em Novo Plano e escolha o convênio a que ele pertence.",
+        "Veja quantos pacientes estão vinculados a cada plano."
+      ],
+      "dicas": [
+        "Os planos também podem ser criados dentro do cadastro do convênio."
+      ],
+      "palavras": [
+        "plano",
+        "convênio"
+      ]
+    },
+    {
+      "id": "procedimentos",
+      "grupo": "Cadastros",
+      "titulo": "Procedimentos",
+      "resumo": "Cadastre os procedimentos médicos e odontológicos, com código e valor, usados na agenda, no prontuário e nas cobranças.",
+      "passos": [
+        "Use Importar TUSS para escolher procedimentos da tabela oficial.",
+        "Ou use Novo Procedimento para cadastrar manualmente.",
+        "Filtre por tipo para ver só médicos ou odontológicos."
+      ],
+      "dicas": [],
+      "palavras": [
+        "procedimento",
+        "tuss",
+        "valor",
+        "tabela"
+      ]
+    },
+    {
+      "id": "usuarios",
+      "grupo": "Cadastros",
+      "titulo": "Usuários",
+      "resumo": "Aqui você cria os acessos da equipe: administradores, médicos, dentistas e atendentes.",
+      "passos": [
+        "Clique em Novo Usuário, informe nome, e-mail, tipo e as clínicas que ele acessa.",
+        "Para médicos e dentistas, preencha o conselho, o número e a UF. São usados na receita e na Memed.",
+        "Ajuste as permissões do menu para liberar ou esconder telas.",
+        "Use os filtros para achar um usuário."
+      ],
+      "dicas": [],
+      "palavras": [
+        "usuário",
+        "acesso",
+        "login",
+        "permissão",
+        "equipe",
+        "crm"
+      ]
+    },
+    {
+      "id": "cobrancas",
+      "grupo": "Financeiro",
+      "titulo": "Cobranças",
+      "resumo": "Gerencie boletos, pagamentos e a inadimplência dos pacientes.",
+      "passos": [
+        "Clique em Novo Boleto para gerar uma cobrança.",
+        "Filtre pelo vencimento: hoje, esta semana, este mês ou vencidos.",
+        "Marque as cobranças pendentes ou vencidas e clique em Enviar via WhatsApp para mandar a todos de uma vez.",
+        "Dê baixa quando o pagamento for recebido."
+      ],
+      "dicas": [
+        "Pacientes sem telefone cadastrado não recebem o envio por WhatsApp."
+      ],
+      "palavras": [
+        "boleto",
+        "pagamento",
+        "parcela",
+        "inadimplência",
+        "receber"
+      ]
+    },
+    {
+      "id": "assinatura",
+      "grupo": "Financeiro",
+      "titulo": "Minha assinatura",
+      "resumo": "Mostra o plano do EasyClin contratado pela clínica, o consumo do mês e as faturas.",
+      "passos": [
+        "Confira o plano atual e use Ver planos para trocar.",
+        "Veja o consumo do mês, como SMS e assistente, e o total.",
+        "Nas faturas fechadas, clique em Pagar."
+      ],
+      "dicas": [],
+      "palavras": [
+        "fatura",
+        "mensalidade",
+        "plano",
+        "pagar"
+      ]
+    },
+    {
+      "id": "assinatura_gestao",
+      "grupo": "Financeiro",
+      "perfis": [
+        "super_admin"
+      ],
+      "titulo": "Gestão de assinaturas",
+      "resumo": "Mostra quanto cada clínica paga, as faturas, as baixas e as notas fiscais.",
+      "passos": [
+        "Escolha a competência, ou seja, o mês.",
+        "Veja o total do mês, o recebido e o que falta receber.",
+        "Abra a fatura de uma clínica para ver a prévia, dar baixa ou emitir a nota."
+      ],
+      "dicas": [],
+      "palavras": [
+        "faturamento",
+        "clínicas",
+        "nota fiscal"
+      ]
+    },
+    {
+      "id": "planos",
+      "grupo": "Financeiro",
+      "perfis": [
+        "super_admin",
+        "admin"
+      ],
+      "titulo": "Planos do sistema",
+      "resumo": "Os planos definem preço e limites de uso do EasyClin para cada clínica.",
+      "passos": [
+        "O super admin cria e edita planos em Novo Plano.",
+        "Administradores, quando liberados, apenas veem e escolhem o plano da clínica."
+      ],
+      "dicas": [],
+      "palavras": [
+        "plano",
+        "preço",
+        "limite"
+      ]
+    },
+    {
+      "id": "ponto",
+      "grupo": "Ponto",
+      "titulo": "Ponto e frequência",
+      "resumo": "Controle a jornada de trabalho dos funcionários da clínica.",
+      "passos": [
+        "Em Registro Manual, escolha o funcionário e clique em Registrar Ponto.",
+        "Em Gerenciamento, escolha o período e veja as horas trabalhadas. Use Imprimir para o relatório.",
+        "Em Biometria Facial e Biometria Digital, cadastre o rosto ou a digital dos funcionários."
+      ],
+      "dicas": [
+        "O reconhecimento facial é um serviço com cobrança mensal e é ativado por um administrador."
+      ],
+      "palavras": [
+        "ponto",
+        "frequência",
+        "jornada",
+        "horas",
+        "biometria",
+        "digital"
+      ]
+    },
+    {
+      "id": "ponto_facial",
+      "grupo": "Ponto",
+      "titulo": "Kiosk de ponto facial",
+      "resumo": "Tela de quiosque para o funcionário bater o ponto olhando para a câmera.",
+      "passos": [
+        "Deixe esta tela aberta em um computador ou tablet com câmera na entrada da clínica.",
+        "O funcionário se posiciona no centro da imagem e o ponto é registrado quando o rosto é reconhecido.",
+        "Se o rosto não for reconhecido, ele deve se aproximar ou procurar o gestor."
+      ],
+      "dicas": [
+        "É preciso permitir a câmera e, se configurado, a localização no navegador."
+      ],
+      "palavras": [
+        "quiosque",
+        "câmera",
+        "rosto",
+        "facial"
+      ]
+    },
+    {
+      "id": "auditoria",
+      "grupo": "Segurança",
+      "titulo": "Auditoria LGPD",
+      "resumo": "A auditoria registra quem acessou ou alterou dados de pacientes, para atender à LGPD.",
+      "passos": [
+        "Filtre por usuário, paciente, ação ou período.",
+        "Veja cada registro com data, usuário e o que foi feito."
+      ],
+      "dicas": [],
+      "palavras": [
+        "lgpd",
+        "log",
+        "acesso",
+        "registro",
+        "segurança"
+      ]
+    },
+    {
+      "id": "sessoes",
+      "grupo": "Segurança",
+      "perfis": [
+        "super_admin"
+      ],
+      "titulo": "Sessões ativas",
+      "resumo": "Mostra quem está usando o sistema agora e o histórico de acessos.",
+      "passos": [
+        "Escolha o período: agora, hoje, esta semana ou este mês.",
+        "Filtre por clínica, operadora ou tipo de usuário."
+      ],
+      "dicas": [],
+      "palavras": [
+        "online",
+        "login",
+        "acesso"
+      ]
+    },
+    {
+      "id": "backup",
+      "grupo": "Sistema",
+      "titulo": "Backup",
+      "resumo": "O backup guarda uma cópia dos dados da clínica para recuperar em caso de problema.",
+      "passos": [
+        "No backup no seu computador, escolha a pasta e o horário e ligue Fazer sozinho todos os dias. Funciona no Chrome ou no Edge.",
+        "O super admin também configura o backup no servidor: pasta, dias, horário e quantos backups manter.",
+        "Confira a data do último backup concluído e o histórico."
+      ],
+      "dicas": [
+        "O backup no computador só roda com o sistema aberto no navegador."
+      ],
+      "palavras": [
+        "cópia",
+        "segurança",
+        "restaurar"
+      ]
+    },
+    {
+      "id": "cid10",
+      "grupo": "Sistema",
+      "perfis": [
+        "super_admin"
+      ],
+      "titulo": "Tabela CID-10",
+      "resumo": "A tabela CID-10 alimenta a busca de diagnósticos no prontuário.",
+      "passos": [
+        "Use Importar CID-10 Automaticamente para carregar cerca de doze mil códigos do DataSUS.",
+        "Ou importe um arquivo CSV e adicione códigos manualmente."
+      ],
+      "dicas": [],
+      "palavras": [
+        "cid",
+        "diagnóstico",
+        "datasus"
+      ]
+    },
+    {
+      "id": "dossie",
+      "grupo": "Sistema",
+      "perfis": [
+        "super_admin"
+      ],
+      "titulo": "Dossiê de configuração",
+      "resumo": "Um levantamento da configuração do servidor: banco, tabelas, integrações e arquivos de ambiente. Senhas e chaves nunca aparecem.",
+      "passos": [
+        "Abra a tela e aguarde o levantamento. Use Abrir em texto para copiar e enviar ao suporte."
+      ],
+      "dicas": [],
+      "palavras": [
+        "diagnóstico",
+        "servidor",
+        "suporte"
+      ]
+    },
+    {
+      "id": "video_demo",
+      "grupo": "Sistema",
+      "perfis": [
+        "super_admin"
+      ],
+      "titulo": "Vídeo de demonstração",
+      "resumo": "Grava um vídeo de apresentação do EasyClin, com narração por voz da ElevenLabs.",
+      "passos": [
+        "Escolha a voz e ajuste o texto de cada cena.",
+        "Gere as narrações, grave a apresentação e baixe em MP4."
+      ],
+      "dicas": [],
+      "palavras": [
+        "vídeo",
+        "apresentação",
+        "narração"
+      ]
+    },
+    {
+      "id": "mensagens",
+      "grupo": "WhatsApp",
+      "titulo": "Mensagens do WhatsApp",
+      "resumo": "Converse com os pacientes pelo WhatsApp da clínica, sem sair do sistema.",
+      "passos": [
+        "Escolha o paciente na lista para abrir a conversa.",
+        "Escreva a mensagem ou use as Mensagens Rápidas.",
+        "Áudios, fotos e documentos recebidos aparecem na conversa."
+      ],
+      "dicas": [
+        "Se aparecer Paciente sem telefone, cadastre o celular na ficha do paciente."
+      ],
+      "palavras": [
+        "whatsapp",
+        "conversa",
+        "mensagem",
+        "chat"
+      ]
+    },
+    {
+      "id": "whatsapp_meta",
+      "grupo": "WhatsApp",
+      "titulo": "WhatsApp oficial",
+      "resumo": "Conecte o número da clínica à API oficial do WhatsApp, da Meta, para enviar avisos com mais estabilidade.",
+      "passos": [
+        "Clique em Conectar WhatsApp e siga o passo a passo da Meta.",
+        "Em Avisos do sistema, escolha o template usado em cada aviso, como lembrete e cobrança.",
+        "Defina a prioridade de envio entre o WhatsApp oficial e o comum."
+      ],
+      "dicas": [],
+      "palavras": [
+        "meta",
+        "api oficial",
+        "template",
+        "whatsapp business"
+      ]
+    },
+    {
+      "id": "configuracoes",
+      "grupo": "Configurações",
+      "titulo": "Configurações da clínica",
+      "resumo": "Ajuste a conexão do WhatsApp, o SMS, os lembretes de consulta, o menu de ajuda do WhatsApp, a impressora e o leitor biométrico.",
+      "passos": [
+        "Em Conexão WhatsApp, configure o servidor e leia o QR code para conectar.",
+        "Em Configurações de Mensagem, defina com quantas horas de antecedência o lembrete é enviado e se pede confirmação. Personalize o texto com as variáveis.",
+        "Em Menu de Ajuda WhatsApp, escolha quando o menu é enviado ao paciente.",
+        "Em PrintServer, baixe o instalador para imprimir direto na impressora da clínica."
+      ],
+      "dicas": [],
+      "palavras": [
+        "whatsapp",
+        "sms",
+        "lembrete",
+        "confirmação",
+        "impressora",
+        "printserver",
+        "biometria"
+      ]
+    },
+    {
+      "id": "configuracoes_globais",
+      "grupo": "Configurações",
+      "perfis": [
+        "super_admin"
+      ],
+      "titulo": "Configurações globais",
+      "resumo": "Configurações que valem para todas as clínicas: preços, recebimento, permissões, Memed, taxa do ponto facial e a voz da ajuda.",
+      "passos": [
+        "Defina os preços cobrados por serviço e os dados de recebimento.",
+        "Em Ajuda por voz, ative a narração e escolha a voz da ElevenLabs. Use Ouvir para testar antes de salvar.",
+        "Configure a Memed com a chave e o segredo."
+      ],
+      "dicas": [
+        "A chave da ElevenLabs fica no servidor, no arquivo de ambiente."
+      ],
+      "palavras": [
+        "global",
+        "memed",
+        "voz",
+        "elevenlabs",
+        "preços",
+        "permissões"
+      ]
+    },
+    {
+      "id": "memed_profissionais",
+      "grupo": "Configurações",
+      "titulo": "Profissionais na Memed",
+      "resumo": "Cadastre os profissionais na Memed para usar a prescrição digital no prontuário.",
+      "passos": [
+        "Use Cadastrar no Memed para enviar os dados e buscar o token automaticamente.",
+        "Se o cadastro ficar em análise, use Buscar Token mais tarde.",
+        "Excluir remove o profissional e o histórico dele na Memed."
+      ],
+      "dicas": [
+        "Conselho, número e UF precisam estar corretos no cadastro do usuário."
+      ],
+      "palavras": [
+        "memed",
+        "receita digital",
+        "token"
+      ]
+    },
+    {
+      "id": "assistente",
+      "grupo": "Primeiros passos",
+      "titulo": "Assistente",
+      "resumo": "O assistente, no canto de baixo da tela, entende pedidos falados ou escritos.",
+      "passos": [
+        "Clique no assistente e fale ou escreva o que precisa, do seu jeito.",
+        "Exemplos: como está o dia hoje, quem tem vaga amanhã à tarde, marcar Maria com a doutora Aline quinta às nove.",
+        "Nada é gravado sem a sua confirmação na tela.",
+        "No prontuário, você pode ditar a consulta e revisar antes de salvar."
+      ],
+      "dicas": [
+        "O assistente precisa estar ativado para a clínica."
+      ],
+      "palavras": [
+        "voz",
+        "falar",
+        "inteligência artificial",
+        "ia",
+        "comando"
+      ]
+    },
+    {
+      "id": "conta",
+      "grupo": "Primeiros passos",
+      "titulo": "Sua conta: senha e aparência",
+      "resumo": "Clique no seu nome, no canto direito do cabeçalho, para abrir o menu da sua conta.",
+      "passos": [
+        "Segurança troca a sua senha e liga a verificação em duas etapas.",
+        "Aparência muda a cor, o modo claro ou escuro, o tamanho da letra e os cantos. A mudança aparece na hora e vale só para você.",
+        "Voltar ao padrão desfaz as mudanças de aparência."
+      ],
+      "dicas": [],
+      "palavras": [
+        "senha",
+        "tema",
+        "modo escuro",
+        "cor",
+        "letra grande"
+      ]
+    }
+  ]
+}

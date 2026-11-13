@@ -619,6 +619,14 @@ try {
   console.error('⚠️ Rota video-demo não carregada:', err.message);
 }
 
+// Ajuda por voz — narração das telas (ElevenLabs; voz escolhida pelo super admin)
+try {
+  app.use('/api/ajuda-voz', require(path.join(SERVER_DIR, 'routes/ajuda-voz')));
+  console.log('   ✅ /api/ajuda-voz');
+} catch (err) {
+  console.error('⚠️ Rota ajuda-voz não carregada:', err.message);
+}
+
 // Mensagens
 app.use('/api/mensagens', mensagensRoutes);
 console.log('   ✅ /api/mensagens');

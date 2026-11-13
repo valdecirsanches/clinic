@@ -7,6 +7,7 @@ import { DadosRecebimentoForm } from '../components/assinatura/DadosRecebimentoF
 import { PrecosAssinaturaForm } from '../components/assinatura/PrecosAssinaturaForm';
 import { MemedConfig } from '../types/memed';
 import { useToast } from '../hooks/useToast';
+import { AjudaVozConfig } from '../components/ajuda/AjudaVozConfig';
 import { useConfiguracoesGlobais } from '../hooks/useConfiguracoesGlobais';
 import { EyeIcon, EyeOffIcon, CreditCardIcon, SaveIcon } from 'lucide-react';
 // Interface para configurações de permissões
@@ -317,6 +318,9 @@ export function ConfiguracoesGlobaisPage() {
           </p>
         </div>
       </Card>
+
+      {/* Ajuda por voz (ElevenLabs): liga a narração e escolhe a voz */}
+      <AjudaVozConfig />
 
       {/* Configuração Memed */}
       <MemedConfigComponent
