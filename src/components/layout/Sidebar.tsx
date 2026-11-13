@@ -34,6 +34,7 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { API_BASE_URL } from '../../config/api';
 import { APP_VERSION } from '../../config/version';
+import { LinkOQueMudou } from '../versao/LinkOQueMudou';
 // ⭐ Itens "básicos" que ficam sempre visíveis (Pacientes, Empresas, Dashboard,
 // Fila) mesmo quando o admin configurou uma whitelist customizada.
 import { MENU_ITENS_BASICOS_SEMPRE_VISIVEIS } from '../../utils/permissoes';
@@ -443,6 +444,9 @@ export function Sidebar({
                   return 'DB: N/A';
                 }
               })()}
+            </p>
+            <p className="text-xs mt-0.5">
+              <LinkOQueMudou />
             </p>
           </div>
           {/* ⭐ Botão fechar no mobile */}

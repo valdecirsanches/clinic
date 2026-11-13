@@ -1,7 +1,8 @@
 /**
  * ⭐ Versão do App — FONTE ÚNICA
  *
- * A versão MAJOR.MINOR.PATCH é manual.
+ * A versão MAJOR.MINOR.PATCH vem do topo de config/historicoVersoes.json
+ * (a cada entrega, acrescente lá a versão nova com o que mudou).
  * O BUILD_DATE é atualizado automaticamente a cada compilação/deploy.
  *
  * Formato exibido: v2.0.6-b250525.1830
@@ -11,9 +12,23 @@
  */
 
 // Versão semântica (atualizar manualmente em releases)
-const MAJOR = 2;
-const MINOR = 0;
-const PATCH = 6;
+import historico from './historicoVersoes.json';
+
+export interface VersaoHistorico {
+  versao: string;
+  /** AAAA-MM-DD */
+  data: string;
+  itens: string[];
+}
+
+/** Histórico de versões, da mais nova para a mais antiga (config/historicoVersoes.json). */
+export const HISTORICO_VERSOES: VersaoHistorico[] = (historico as {versoes: VersaoHistorico[];}).versoes;
+
+// A versão MAJOR.MINOR.PATCH é a do topo do histórico.
+const [MAJOR, MINOR, PATCH] = HISTORICO_VERSOES[0].versao.split('.').map(Number);
+
+/** Número da versão: "2.2.0" */
+export const VERSAO_ATUAL = HISTORICO_VERSOES[0].versao;
 
 // ⭐ Data do build — atualizada automaticamente pelo Vite via define
 // Fallback: usa a data de carregamento do módulo (funciona em qualquer ambiente)

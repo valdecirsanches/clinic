@@ -6,6 +6,7 @@ import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
 import { API_BASE_URL } from '../config/api';
 import { APP_VERSION } from '../config/version';
+import { LinkOQueMudou } from '../components/versao/LinkOQueMudou';
 // Tipos para o submenu de prontuário (mantido para compatibilidade)
 export type ProntuarioStep = 'resumo' | 'anamnese' | 'exame_fisico' | 'diagnostico' | 'evolucao' | 'exames' | 'prescricoes' | 'memed' | 'relatorios' | 'atestado' | 'imagens';
 interface SidebarProps {
@@ -282,6 +283,9 @@ export function Sidebar({
                 return 'DB: N/A';
               }
             })()}
+            </p>
+            <p className="text-xs mt-0.5">
+              <LinkOQueMudou />
             </p>
           </div>
           {/* ⭐ Botão fechar no mobile */}

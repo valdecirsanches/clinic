@@ -8,6 +8,8 @@
 // Para o aviso mostrar o que mudou, inclua no commit uma linha:
 //   Novidade: Ajuda por voz em todas as telas (botão ? ou F1).
 import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import type { Plugin } from 'vite';
 
 export interface InfoVersao {
@@ -18,6 +20,19 @@ export interface InfoVersao {
   data: string;
   /** Resumo para o usuário (linha "Novidade: ..." do último commit). */
   novidade: string | null;
+  /** Número da versão publicada (topo de config/historicoVersoes.json). */
+  versao: string | null;
+  /** Histórico de versões (mais nova primeiro): o que mudou em cada uma. */
+  historico: {versao: string;data: string;itens: string[];}[];
+}
+
+function lerHistorico(raiz: string): InfoVersao['historico'] {
+  try {
+    const bruto = JSON.parse(fs.readFileSync(path.join(raiz, 'config', 'historicoVersoes.json'), 'utf8'));
+    return Array.isArray(bruto.versoes) ? bruto.versoes : [];
+  } catch {
+    return [];
+  }
 }
 
 function git(args: string, cwd: string): string | null {
@@ -34,7 +49,11 @@ function lerVersao(cwd: string, inicio: string): InfoVersao {
     id: commit || inicio,
     commit,
     data: (commit && git('log -1 --format=%cI', cwd)) || inicio,
-    novidade: commit ? novidadeDoCommit(git('log -1 --format=%B', cwd)) : null
+    novidade: commit ? novidadeDoCommit(git('log -1 --format=%B', cwd)) : null,
+    ...(() => {
+      const historico = lerHistorico(cwd);
+      return { versao: historico[0]?.versao || null, historico };
+    })()
   };
 }
 

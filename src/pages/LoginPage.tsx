@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { UserPlusIcon, PlayCircleIcon, SparklesIcon } from 'lucide-react';
 import { Operadora } from '../types';
 import { APP_VERSION } from '../config/version';
+import { LinkOQueMudou } from '../components/versao/LinkOQueMudou';
 import { API_BASE_URL } from '../config/api';
 export interface LoginPageProps {
   onLogin: LoginFormProps['onLogin'];
@@ -127,7 +128,7 @@ export function LoginPage({
         </div>
 
         <p className="text-center text-sm text-gray-600 mt-6">
-          © 2024 EasyClin 2.0 ({APP_VERSION})
+          © 2024 EasyClin 2.0 ({APP_VERSION}) · <LinkOQueMudou />
         </p>
         {/* API configurada — informação discreta para diagnóstico */}
         <p

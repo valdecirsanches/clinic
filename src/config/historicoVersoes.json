@@ -1,0 +1,61 @@
+{
+  "_leia": "FONTE ÚNICA da versão do sistema. A cada entrega, acrescente uma versão NO TOPO, com o que mudou escrito para o usuário da clínica. O número exibido (config/version.ts), o aviso de versão nova e a janela 'O que mudou' saem daqui.",
+  "versoes": [
+    {
+      "versao": "2.2.0",
+      "data": "2026-11-13",
+      "itens": [
+        "Ao atualizar, o aviso de nova versão mostra tudo o que mudou desde a versão que você estava usando.",
+        "Novo link \"O que mudou\" ao lado do número da versão, com o histórico de todas as versões."
+      ]
+    },
+    {
+      "versao": "2.1.3",
+      "data": "2026-11-13",
+      "itens": [
+        "Configurações Globais → Ajuda por voz: cada voz tem um botão ▶ para ouvir antes de escolher."
+      ]
+    },
+    {
+      "versao": "2.1.2",
+      "data": "2026-11-13",
+      "itens": [
+        "Tour guiado em cada tela: aperte F1 (ou \"Ajuda\" no topo) e clique em \"Fazer o tour desta tela\". Os botões são destacados um a um, com explicação e, se ativada, narração.",
+        "Botão \"Ajuda F1\" visível no topo da tela."
+      ]
+    },
+    {
+      "versao": "2.1.1",
+      "data": "2026-11-13",
+      "itens": [
+        "O sistema avisa quando sai uma versão nova e oferece atualizar com um clique.",
+        "O botão Sair fica no canto direito do cabeçalho."
+      ]
+    },
+    {
+      "versao": "2.1.0",
+      "data": "2026-11-13",
+      "itens": [
+        "Ajuda em todas as telas: tecla F1 ou botão \"?\" no topo, com a explicação da tela atual e busca por qualquer função.",
+        "A ajuda pode ser ouvida em voz. O super administrador escolhe a voz em Configurações Globais.",
+        "O assistente de voz passa a ouvir e responder com a mesma voz escolhida para a ajuda."
+      ]
+    },
+    {
+      "versao": "2.0.6",
+      "data": "2026-11-06",
+      "itens": [
+        "Quem visita o site sem login vê uma demonstração com dados fictícios e o botão Entrar.",
+        "Aparência por usuário: cor, modo escuro, letra maior e cantos, no menu do seu nome.",
+        "Seu nome aparece no topo; Segurança e Aparência ficam no menu ao clicar nele.",
+        "Voltaram o PrintServer (impressão direta) e o leitor de digital do ponto.",
+        "Assistente de voz com permissões por perfil e registro na auditoria.",
+        "Odontograma novo, sempre salvo e aberto com o mais recente do paciente.",
+        "Pedido de assinatura com confirmação do telefone e texto pronto.",
+        "Prontuário abre até 4 vezes mais rápido e guarda rascunho automático: o texto não se perde.",
+        "Prescrição Memed e tela do prontuário mais confortável.",
+        "Login obrigatório em todo o sistema e arquivos de pacientes protegidos."
+      ]
+    }
+  ]
+}

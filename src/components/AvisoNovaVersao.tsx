@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCwIcon, XIcon } from 'lucide-react';
 import { DEMO_VIDEO } from '../utils/modoDemo';
+import { VERSAO_ATUAL, type VersaoHistorico } from '../config/version';
+import { versoesNovas } from '../utils/historicoVersoes';
+import { HistoricoVersoesModal } from './versao/HistoricoVersoesModal';
 
 // ==================== AVISO DE VERSÃO NOVA ====================
 // Ao abrir, guarda a versão publicada (/versao.json, gerado pelo
@@ -12,6 +15,8 @@ export interface VersaoPublicada {
   commit?: string | null;
   data?: string;
   novidade?: string | null;
+  versao?: string | null;
+  historico?: VersaoHistorico[];
 }
 
 const INTERVALO = 5 * 60 * 1000;
@@ -50,6 +55,7 @@ export function AvisoNovaVersao() {
   const ultimaConsultaRef = useRef(0);
   const adiadoAteRef = useRef(0);
   const [nova, setNova] = useState<VersaoPublicada | null>(null);
+  const [verHistorico, setVerHistorico] = useState(false);
 
   const conferir = useCallback(async (forcar = false) => {
     const agora = Date.now();
@@ -84,54 +90,77 @@ export function AvisoNovaVersao() {
   if (!nova) return null;
 
   const quando = formatarData(nova.data);
+  const novas = versoesNovas(nova.historico || [], VERSAO_ATUAL);
+  const itens = novas.flatMap((v) => v.itens);
+  const MOSTRAR = 5;
+  const adiar = () => {
+    adiadoAteRef.current = Date.now() + ADIAR;
+    setNova(null);
+  };
+
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed left-1/2 top-3 z-[80] w-[min(560px,calc(100vw-1.5rem))] -translate-x-1/2 rounded-xl border border-teal-200 bg-white p-4 shadow-2xl">
+    <>
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed left-1/2 top-3 z-[80] w-[min(560px,calc(100vw-1.5rem))] -translate-x-1/2 rounded-xl border border-teal-200 bg-white p-4 shadow-2xl">
+        
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+            <RefreshCwIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-gray-900">
+              {nova.versao && nova.versao !== VERSAO_ATUAL ?
+              `Nova versão ${nova.versao} do EasyClin disponível` :
+              'Nova versão do EasyClin disponível'}
+            </p>
+            {itens.length > 0 ?
+            <>
+                <p className="mt-1 text-xs font-medium text-gray-500">O que mudou desde a sua versão ({VERSAO_ATUAL}):</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-gray-700">
+                  {itens.slice(0, MOSTRAR).map((item, i) => <li key={i}>{item}</li>)}
+                </ul>
+                {itens.length > MOSTRAR &&
+              <p className="mt-0.5 text-xs text-gray-500">e mais {itens.length - MOSTRAR} novidade(s).</p>
+              }
+              </> :
 
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700">
-          <RefreshCwIcon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900">Nova versão do EasyClin disponível</p>
-          {nova.novidade && <p className="mt-0.5 text-sm text-gray-700">{nova.novidade}</p>}
-          <p className="mt-0.5 text-xs text-gray-500">
-            {quando ? `Publicada em ${quando}. ` : ''}Atualize para usar as novidades. O que você já salvou não se perde.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-300">
-
-              <RefreshCwIcon className="h-4 w-4" /> Atualizar agora
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                adiadoAteRef.current = Date.now() + ADIAR;
-                setNova(null);
-              }}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-
-              Depois
-            </button>
+            <p className="mt-0.5 text-sm text-gray-700">{nova.novidade || 'Correções e melhorias.'}</p>
+            }
+            <p className="mt-1 text-xs text-gray-500">
+              {quando ? `Publicada em ${quando}. ` : ''}Atualize para usar as novidades. O que você já salvou não se perde.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-300">
+                
+                <RefreshCwIcon className="h-4 w-4" /> Atualizar agora
+              </button>
+              <button
+                type="button"
+                onClick={adiar}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                
+                Depois
+              </button>
+              {(nova.historico || []).length > 0 &&
+              <button type="button" onClick={() => setVerHistorico(true)} className="text-sm font-medium text-teal-700 hover:underline">
+                  Ver histórico de versões
+                </button>
+              }
+            </div>
           </div>
+          <button type="button" onClick={adiar} className="rounded-full p-1 text-gray-400 hover:bg-gray-100" aria-label="Fechar aviso">
+            <XIcon className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            adiadoAteRef.current = Date.now() + ADIAR;
-            setNova(null);
-          }}
-          className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
-          aria-label="Fechar aviso">
-
-          <XIcon className="h-4 w-4" />
-        </button>
       </div>
-    </div>);
+      {verHistorico &&
+      <HistoricoVersoesModal historico={nova.historico} versaoEmUso={VERSAO_ATUAL} onFechar={() => setVerHistorico(false)} />
+      }
+    </>);
 
 }
