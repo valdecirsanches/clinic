@@ -176,6 +176,15 @@ describe('rota /api/ajuda-voz', () => {
     expect(chamadasTts).toHaveLength(1);
   });
 
+  it('narra um passo do tour pelo índice', async () => {
+    const { passosDoTour } = require('../../server/ajuda/catalogo');
+    const r = await pedir('/falar', 'at', { topico: 'agenda', passo: 1 });
+    expect(r.status).toBe(200);
+    expect(chamadasTts[0].corpo.text).toBe(passosDoTour(buscarTopico('agenda'))[1].texto);
+    expect((await pedir('/falar', 'at', { topico: 'agenda', passo: 99 })).status).toBe(404);
+    expect((await pedir('/falar', 'at', { topico: 'agenda', passo: 'x' })).status).toBe(404);
+  });
+
   it('pedidos simultâneos do mesmo tópico geram o áudio uma vez só', async () => {
     const respostas = await Promise.all([1, 2, 3].map(() => pedir('/falar', 'at', { topico: 'cobrancas' })));
     expect(respostas.every((r) => r.status === 200)).toBe(true);

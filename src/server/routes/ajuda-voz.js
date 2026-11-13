@@ -17,7 +17,7 @@ const path = require('path');
 const router = express.Router();
 const { exigirSuperAdmin, lerCorpoTexto } = require('../services/superAdmin');
 const elevenLabs = require('../services/elevenLabs');
-const { buscarTopico, textoNarracao } = require('../ajuda/catalogo');
+const { buscarTopico, textoNarracao, passosDoTour } = require('../ajuda/catalogo');
 const { lerConfig, gravarConfig, normalizarConfig } = require('../ajuda/configVoz');
 
 router.use(lerCorpoTexto);
@@ -133,17 +133,27 @@ router.post('/teste', async (req, res) => {
   }
 });
 
-// POST /api/ajuda-voz/falar { topico } → audio/mpeg (usuário logado)
+// POST /api/ajuda-voz/falar { topico, passo? } → audio/mpeg (usuário logado)
+// Sem `passo`: a explicação inteira. Com `passo` (número): aquele passo do tour.
 router.post('/falar', async (req, res) => {
   const topico = buscarTopico(req.body && req.body.topico);
   if (!topico) return res.status(404).json({ error: 'Tópico de ajuda não encontrado.' });
+  const temPasso = req.body.passo !== undefined && req.body.passo !== null;
+  let texto = textoNarracao(topico);
+  if (temPasso) {
+    const passo = passosDoTour(topico)[Number(req.body.passo)];
+    if (!Number.isInteger(Number(req.body.passo)) || !passo) {
+      return res.status(404).json({ error: 'Passo do tour não encontrado.' });
+    }
+    texto = passo.texto;
+  }
   const config = await lerConfig();
   if (!config.ativo) return res.status(409).json({ error: 'A ajuda por voz está desativada.' });
   if (!elevenLabs.configurado()) {
     return res.status(503).json({ error: 'A voz da ajuda não está disponível no servidor.' });
   }
   try {
-    const { audio, doCache } = await obterAudio(config.vozId, config.ajustes, textoNarracao(topico));
+    const { audio, doCache } = await obterAudio(config.vozId, config.ajustes, texto);
     enviarAudio(res, audio, doCache);
   } catch (err) {
     console.error(`❌ [ajuda-voz] Falha ao narrar "${topico.id}":`, err.message);

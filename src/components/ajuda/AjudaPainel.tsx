@@ -10,7 +10,8 @@ import {
   Loader2Icon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  LightbulbIcon } from
+  LightbulbIcon,
+  PlayCircleIcon } from
 'lucide-react';
 import {
   TopicoAjuda,
@@ -26,6 +27,8 @@ interface AjudaPainelProps {
   prontuarioStep?: string | null;
   tipoUsuario: string;
   onFechar: () => void;
+  /** Começa o tour guiado da tela atual (o painel fecha). */
+  onIniciarTour?: (topicoId: string) => void;
 }
 
 /**
@@ -33,7 +36,7 @@ interface AjudaPainelProps {
  * e permite procurar a ajuda de qualquer função. Com a ajuda por voz ativada
  * pelo super admin, o botão "Ouvir" narra o texto com a voz da ElevenLabs.
  */
-export function AjudaPainel({ telaAtual, prontuarioStep, tipoUsuario, onFechar }: AjudaPainelProps) {
+export function AjudaPainel({ telaAtual, prontuarioStep, tipoUsuario, onFechar, onIniciarTour }: AjudaPainelProps) {
   const daTela = useMemo(() => topicoDaTela(telaAtual, prontuarioStep), [telaAtual, prontuarioStep]);
   const [topicoId, setTopicoId] = useState(daTela.id);
   const [busca, setBusca] = useState('');
@@ -68,8 +71,9 @@ export function AjudaPainel({ telaAtual, prontuarioStep, tipoUsuario, onFechar }
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/20 lg:bg-transparent" onClick={onFechar} aria-hidden="true" />
+      <div data-ajuda-ui="" className="fixed inset-0 z-[60] bg-black/20 lg:bg-transparent" onClick={onFechar} aria-hidden="true" />
       <aside
+        data-ajuda-ui=""
         role="dialog"
         aria-label="Ajuda"
         className="fixed inset-y-0 right-0 z-[61] flex w-full max-w-[440px] flex-col border-l border-gray-200 bg-white shadow-2xl">
@@ -135,6 +139,20 @@ export function AjudaPainel({ telaAtual, prontuarioStep, tipoUsuario, onFechar }
                 <p className="text-xs font-medium uppercase tracking-wide text-teal-700">{topico.grupo}</p>
                 <h3 className="mt-0.5 text-lg font-semibold text-gray-900">{topico.titulo}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-gray-700">{topico.resumo}</p>
+
+                {onIniciarTour && topico.id === daTela.id &&
+              <button
+                type="button"
+                onClick={() => {
+                  voz.parar();
+                  onIniciarTour(topico.id);
+                }}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-teal-600 px-3 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-300">
+                
+                    <PlayCircleIcon className="h-5 w-5" />
+                    Fazer o tour desta tela
+                  </button>
+              }
 
                 {voz.config.ativo &&
               <div className="mt-4 flex flex-wrap items-center gap-2">

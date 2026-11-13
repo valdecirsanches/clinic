@@ -27,4 +27,18 @@ function textoNarracao(topico) {
   return partes.filter(Boolean).join(' ');
 }
 
-module.exports = { catalogo, buscarTopico, textoNarracao };
+/**
+ * Passos do tour guiado: { alvo, texto }. `alvo` é um texto visível na tela
+ * (nome de botão, título) ou "css:<seletor>"; null = cartão centralizado.
+ * Sem tour escrito, usa o resumo e os passos da ajuda.
+ * ⚠️ Mesma regra em src/data/ajuda.ts (passosDoTour) — mudou aqui, mude lá.
+ */
+function passosDoTour(topico) {
+  if (!topico) return [];
+  if (Array.isArray(topico.tour) && topico.tour.length) {
+    return topico.tour.map((p) => ({ alvo: p.alvo || null, texto: String(p.texto || '') }));
+  }
+  return [topico.resumo, ...(topico.passos || [])].filter(Boolean).map((texto) => ({ alvo: null, texto }));
+}
+
+module.exports = { catalogo, buscarTopico, textoNarracao, passosDoTour };

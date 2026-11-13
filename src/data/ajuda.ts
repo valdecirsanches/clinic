@@ -13,6 +13,14 @@ export interface TopicoAjuda {
   palavras?: string[];
   /** Só aparece para estes perfis (sem o campo: todos). */
   perfis?: string[];
+  /** Tour guiado da tela (sem o campo: usa resumo + passos). */
+  tour?: PassoTour[];
+}
+
+export interface PassoTour {
+  /** Texto visível na tela (botão, título) ou "css:<seletor>". null = centralizado. */
+  alvo: string | null;
+  texto: string;
 }
 
 export const topicosAjuda: TopicoAjuda[] = (catalogo as {topicos: TopicoAjuda[];}).topicos;
@@ -21,6 +29,17 @@ const porId = new Map(topicosAjuda.map((t) => [t.id, t]));
 
 export function buscarTopicoAjuda(id: string | null | undefined): TopicoAjuda | null {
   return id ? porId.get(id) || null : null;
+}
+
+/**
+ * Passos do tour guiado. ⚠️ Mesma regra de server/ajuda/catalogo.js
+ * (passosDoTour) — o servidor narra o passo pelo índice.
+ */
+export function passosDoTour(topico: TopicoAjuda): PassoTour[] {
+  if (Array.isArray(topico.tour) && topico.tour.length) {
+    return topico.tour.map((p) => ({ alvo: p.alvo || null, texto: String(p.texto || '') }));
+  }
+  return [topico.resumo, ...(topico.passos || [])].filter(Boolean).map((texto) => ({ alvo: null, texto }));
 }
 
 /** Tópico da tela atual; no prontuário, o da aba aberta. */

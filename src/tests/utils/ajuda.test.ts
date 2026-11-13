@@ -24,3 +24,30 @@ describe('ajuda das telas', () => {
     expect(pesquisarAjuda('', 'atendente').some((t) => t.id === 'operadoras')).toBe(false);
   });
 });
+
+import { createRequire } from 'module';
+import { topicosAjuda, passosDoTour } from '../../data/ajuda';
+
+describe('tour guiado', () => {
+  const require = createRequire(import.meta.url);
+  const servidor = require('../../server/ajuda/catalogo');
+
+  it('o app e o servidor montam os mesmos passos (o servidor narra pelo índice)', () => {
+    for (const t of topicosAjuda) {
+      expect(passosDoTour(t), t.id).toEqual(servidor.passosDoTour(servidor.buscarTopico(t.id)));
+    }
+  });
+
+  it('toda tela tem tour com texto em todos os passos', () => {
+    for (const t of topicosAjuda) {
+      const passos = passosDoTour(t);
+      expect(passos.length, t.id).toBeGreaterThan(0);
+      for (const p of passos) expect(p.texto.trim(), t.id).not.toBe('');
+    }
+  });
+
+  it('sem tour escrito, usa resumo e passos da ajuda, sem alvo', () => {
+    const t = { id: 'x', grupo: 'g', titulo: 'T', resumo: 'R', passos: ['a', 'b'], dicas: [] };
+    expect(passosDoTour(t)).toEqual([{ alvo: null, texto: 'R' }, { alvo: null, texto: 'a' }, { alvo: null, texto: 'b' }]);
+  });
+});

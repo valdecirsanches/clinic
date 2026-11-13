@@ -42,17 +42,18 @@ async function erroDe(resposta: Response): Promise<Error> {
   return new Error(dados?.error || `Falha ao gerar a voz (HTTP ${resposta.status}).`);
 }
 
-async function urlDoTopico(topico: string): Promise<string> {
-  const pronta = audiosPorTopico.get(topico);
+async function urlDoTopico(topico: string, passo?: number): Promise<string> {
+  const chave = passo === undefined ? topico : `${topico}#${passo}`;
+  const pronta = audiosPorTopico.get(chave);
   if (pronta) return pronta;
   const r = await fetch(`${BASE}/falar`, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: JSON.stringify({ topico })
+    body: JSON.stringify(passo === undefined ? { topico } : { topico, passo })
   });
   if (!r.ok) throw await erroDe(r);
   const url = URL.createObjectURL(await r.blob());
-  audiosPorTopico.set(topico, url);
+  audiosPorTopico.set(chave, url);
   return url;
 }
 
@@ -89,14 +90,15 @@ export function useAjudaVoz() {
     audioRef.current?.pause();
   }, []);
 
-  const ouvir = useCallback(async (topico: string) => {
+  /** Narra o tópico inteiro, ou só um passo do tour (passo = índice). */
+  const ouvir = useCallback(async (topico: string, passo?: number) => {
     const pedido = ++pedidoRef.current;
     audioRef.current?.pause();
     setErro(null);
-    setTopicoTocando(topico);
+    setTopicoTocando(passo === undefined ? topico : `${topico}#${passo}`);
     setEstado('carregando');
     try {
-      const url = await urlDoTopico(topico);
+      const url = await urlDoTopico(topico, passo);
       if (pedido !== pedidoRef.current) return; // outro pedido passou na frente
       if (!audioRef.current) {
         audioRef.current = new Audio();

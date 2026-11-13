@@ -371,10 +371,12 @@ export function Header({
             <button
               type="button"
               onClick={onAjuda}
-              className="p-2 rounded-full text-gray-500 transition-colors hover:bg-teal-50 hover:text-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-300"
+              className="flex items-center gap-1.5 p-2 lg:px-3 rounded-full text-gray-600 transition-colors hover:bg-teal-50 hover:text-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-300"
               title="Ajuda desta tela (F1)"
               aria-label="Ajuda desta tela">
                 <HelpCircleIcon className="w-5 h-5 lg:w-6 lg:h-6" />
+                <span className="hidden lg:inline text-sm font-medium">Ajuda</span>
+                <kbd className="hidden lg:inline rounded border border-gray-300 bg-gray-50 px-1 text-[10px] font-semibold text-gray-500">F1</kbd>
               </button>
             }
 

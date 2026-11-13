@@ -22,6 +22,28 @@
         "clínica",
         "começar",
         "visão geral"
+      ],
+      "tour": [
+        {
+          "alvo": "css:[data-menu-id=\"dashboard\"]",
+          "texto": "Este é o menu. Cada item abre uma tela do sistema. Os grupos, como Administração e Configurações, abrem com um clique."
+        },
+        {
+          "alvo": "css:select",
+          "texto": "Aqui você escolhe a clínica em que está trabalhando."
+        },
+        {
+          "alvo": "css:[aria-label=\"Ajuda desta tela\"]",
+          "texto": "Este botão abre a ajuda da tela em que você está. A tecla F1 faz o mesmo."
+        },
+        {
+          "alvo": "css:[aria-haspopup=\"menu\"]",
+          "texto": "No seu nome você troca a senha e muda a aparência do sistema."
+        },
+        {
+          "alvo": "Sair",
+          "texto": "E aqui você sai do sistema com segurança."
+        }
       ]
     },
     {
@@ -42,6 +64,20 @@
         "resumo",
         "painel",
         "indicadores"
+      ],
+      "tour": [
+        {
+          "alvo": "Dashboard",
+          "texto": "O dashboard é o resumo do dia da clínica."
+        },
+        {
+          "alvo": "Consultas Hoje",
+          "texto": "Estes cartões mostram os números principais, como as consultas de hoje e o total de pacientes."
+        },
+        {
+          "alvo": "Consultas - Últimos 7 Dias",
+          "texto": "O gráfico mostra o movimento dos últimos dias."
+        }
       ]
     },
     {
@@ -69,6 +105,24 @@
         "encaixe",
         "horário",
         "transferir"
+      ],
+      "tour": [
+        {
+          "alvo": "css:[data-tour=\"calendario\"]",
+          "texto": "No calendário você escolhe o dia. Clique com o botão direito em um dia para abrir ou fechar a agenda."
+        },
+        {
+          "alvo": "Nova Consulta",
+          "texto": "Use Nova Consulta para marcar."
+        },
+        {
+          "alvo": "css:[data-tour=\"profissional\"]",
+          "texto": "Escolha o profissional. Com um profissional escolhido aparecem os horários livres dele, e você clica num horário para marcar."
+        },
+        {
+          "alvo": null,
+          "texto": "Cada linha da lista é uma consulta. Clique nela para confirmar, marcar chegada, falta ou cancelar."
+        }
       ]
     },
     {
@@ -94,6 +148,20 @@
         "videochamada",
         "online",
         "teleconsulta"
+      ],
+      "tour": [
+        {
+          "alvo": "Fila de Atendimento",
+          "texto": "Aqui ficam os pacientes que já chegaram, com o tempo de espera."
+        },
+        {
+          "alvo": "Ordenar fila por",
+          "texto": "Escolha se a fila segue a ordem de chegada ou o horário marcado."
+        },
+        {
+          "alvo": "Chamar",
+          "texto": "Chamar avisa o paciente; Atender abre o prontuário. Durante o atendimento você pode pausar e finalizar."
+        }
       ]
     },
     {
@@ -117,6 +185,20 @@
         "grade",
         "dia extra",
         "escala"
+      ],
+      "tour": [
+        {
+          "alvo": "Nova Agenda",
+          "texto": "Crie aqui a agenda de um profissional: dias, horários e duração das consultas."
+        },
+        {
+          "alvo": "Abrir/Fechar",
+          "texto": "Abrir ou fechar suspende a agenda sem apagá-la."
+        },
+        {
+          "alvo": "Dia Extra",
+          "texto": "Dia Extra abre um dia fora da rotina."
+        }
       ]
     },
     {
@@ -140,6 +222,20 @@
         "dependente",
         "cpf",
         "aniversário"
+      ],
+      "tour": [
+        {
+          "alvo": "css:input[placeholder*=\"Buscar por nome, CPF\"]",
+          "texto": "Busque o paciente por nome, CPF, telefone ou e-mail."
+        },
+        {
+          "alvo": "Novo Paciente",
+          "texto": "Novo Paciente abre o cadastro em branco."
+        },
+        {
+          "alvo": "Prontuário",
+          "texto": "Em cada paciente, Prontuário abre o histórico clínico e Editar abre a ficha."
+        }
       ]
     },
     {
@@ -159,6 +255,16 @@
         "prontuário",
         "atendimentos anteriores",
         "resumo clínico"
+      ],
+      "tour": [
+        {
+          "alvo": "css:input[placeholder*=\"prontuário\"]",
+          "texto": "Digite o nome do paciente para abrir o prontuário dele."
+        },
+        {
+          "alvo": "Novo Atendimento",
+          "texto": "Novo Atendimento começa uma consulta; Continuar Atendimento retoma uma aberta."
+        }
       ]
     },
     {
@@ -183,6 +289,16 @@
         "abas",
         "atalhos",
         "ditado"
+      ],
+      "tour": [
+        {
+          "alvo": "Anamnese",
+          "texto": "Estas abas são as partes da consulta. Alt mais um número troca de aba pelo teclado."
+        },
+        {
+          "alvo": "Salvar",
+          "texto": "O que você digita fica guardado como rascunho. Control mais S salva a aba aberta."
+        }
       ]
     },
     {
@@ -218,6 +334,16 @@
         "queixa",
         "história",
         "antecedentes"
+      ],
+      "tour": [
+        {
+          "alvo": "Queixa Principal",
+          "texto": "Comece pela queixa principal e pela história do paciente."
+        },
+        {
+          "alvo": "Salvar Anamnese",
+          "texto": "Depois clique em Salvar Anamnese, ou use Control mais S."
+        }
       ]
     },
     {
@@ -238,6 +364,12 @@
         "altura",
         "temperatura",
         "saturação"
+      ],
+      "tour": [
+        {
+          "alvo": "Sinais Vitais",
+          "texto": "Preencha os sinais vitais. Esta aba salva sozinha enquanto você digita."
+        }
       ]
     },
     {
@@ -257,6 +389,16 @@
         "cid",
         "hipótese",
         "doença"
+      ],
+      "tour": [
+        {
+          "alvo": "Diagnóstico principal",
+          "texto": "Busque o diagnóstico pelo código ou nome do CID-10."
+        },
+        {
+          "alvo": "Salvar Diagnóstico",
+          "texto": "E salve aqui."
+        }
       ]
     },
     {
@@ -274,6 +416,12 @@
         "retorno",
         "acompanhamento",
         "evolução clínica"
+      ],
+      "tour": [
+        {
+          "alvo": "Adicionar evolução",
+          "texto": "Escreva a evolução e clique em Adicionar evolução. O histórico aparece abaixo."
+        }
       ]
     },
     {
@@ -294,6 +442,20 @@
         "solicitação",
         "laboratório",
         "rotina"
+      ],
+      "tour": [
+        {
+          "alvo": "Exames de Rotina",
+          "texto": "Escolha exames de rotina prontos ou faça uma solicitação livre."
+        },
+        {
+          "alvo": "Padrões",
+          "texto": "Padrões guarda os pedidos que você usa sempre."
+        },
+        {
+          "alvo": "Imprimir",
+          "texto": "Salve e imprima o pedido."
+        }
       ]
     },
     {
@@ -316,6 +478,20 @@
         "memed",
         "posologia",
         "controle especial"
+      ],
+      "tour": [
+        {
+          "alvo": "Própria",
+          "texto": "Escolha entre o receituário próprio e a Memed."
+        },
+        {
+          "alvo": "Padrões",
+          "texto": "Padrões traz receitas que você usa com frequência."
+        },
+        {
+          "alvo": "Imprimir",
+          "texto": "Salve e imprima a receita."
+        }
       ]
     },
     {
@@ -351,6 +527,12 @@
         "afastamento",
         "comparecimento",
         "declaração"
+      ],
+      "tour": [
+        {
+          "alvo": "Novo Atestado",
+          "texto": "Preencha os dados do atestado e use Salvar e Imprimir."
+        }
       ]
     },
     {
@@ -371,6 +553,12 @@
         "upload",
         "digitalizar",
         "imagem"
+      ],
+      "tour": [
+        {
+          "alvo": "Upload",
+          "texto": "Upload anexa arquivos; Digitalizar fotografa um documento; Solicitar via WhatsApp pede ao paciente."
+        }
       ]
     },
     {
@@ -493,6 +681,12 @@
         "convênio",
         "plano",
         "operadora de saúde"
+      ],
+      "tour": [
+        {
+          "alvo": "Novo Convênio",
+          "texto": "Cadastre o convênio aqui. Depois de salvar, adicione os planos dele."
+        }
       ]
     },
     {
@@ -511,6 +705,16 @@
         "parceira",
         "unidade",
         "relatório de empresa"
+      ],
+      "tour": [
+        {
+          "alvo": "Nova Empresa",
+          "texto": "Cadastre a empresa parceira e as unidades."
+        },
+        {
+          "alvo": "Empresa",
+          "texto": "Na lista, cada empresa tem relatórios de atendimentos e de pacientes."
+        }
       ]
     },
     {
@@ -526,6 +730,12 @@
       "palavras": [
         "especialidade",
         "área"
+      ],
+      "tour": [
+        {
+          "alvo": "Nova Especialidade",
+          "texto": "Cadastre especialidades médicas ou odontológicas."
+        }
       ]
     },
     {
@@ -543,6 +753,12 @@
         "remédio",
         "anvisa",
         "tarja"
+      ],
+      "tour": [
+        {
+          "alvo": "Importar Base ANVISA",
+          "texto": "Carregue a base oficial de medicamentos para sugerir nomes na receita."
+        }
       ]
     },
     {
@@ -563,6 +779,12 @@
         "operadora",
         "empresa",
         "grupo"
+      ],
+      "tour": [
+        {
+          "alvo": "Nova Operadora",
+          "texto": "Cadastre a operadora pelo CNPJ; os dados da Receita vêm sozinhos."
+        }
       ]
     },
     {
@@ -580,6 +802,12 @@
       "palavras": [
         "plano",
         "convênio"
+      ],
+      "tour": [
+        {
+          "alvo": "Novo Plano",
+          "texto": "Cadastre os planos aceitos e ligue cada um ao convênio."
+        }
       ]
     },
     {
@@ -598,6 +826,16 @@
         "tuss",
         "valor",
         "tabela"
+      ],
+      "tour": [
+        {
+          "alvo": "Importar TUSS",
+          "texto": "Importe procedimentos da tabela oficial TUSS."
+        },
+        {
+          "alvo": "Novo Procedimento",
+          "texto": "Ou cadastre manualmente."
+        }
       ]
     },
     {
@@ -619,6 +857,16 @@
         "permissão",
         "equipe",
         "crm"
+      ],
+      "tour": [
+        {
+          "alvo": "Novo Usuário",
+          "texto": "Crie o acesso de cada pessoa da equipe."
+        },
+        {
+          "alvo": "Filtros",
+          "texto": "Use os filtros para achar um usuário."
+        }
       ]
     },
     {
@@ -641,6 +889,20 @@
         "parcela",
         "inadimplência",
         "receber"
+      ],
+      "tour": [
+        {
+          "alvo": "Novo Boleto",
+          "texto": "Gere uma cobrança nova."
+        },
+        {
+          "alvo": "Período de Vencimento:",
+          "texto": "Filtre pelo vencimento."
+        },
+        {
+          "alvo": null,
+          "texto": "Marque as cobranças pendentes ou vencidas na tabela: aparece o botão Enviar via WhatsApp para mandar todas de uma vez."
+        }
       ]
     },
     {
@@ -659,6 +921,16 @@
         "mensalidade",
         "plano",
         "pagar"
+      ],
+      "tour": [
+        {
+          "alvo": "Minha Assinatura",
+          "texto": "Aqui está o plano do EasyClin da clínica, o consumo do mês e as faturas."
+        },
+        {
+          "alvo": "Ver planos",
+          "texto": "Use Ver planos para trocar de plano."
+        }
       ]
     },
     {
@@ -721,6 +993,20 @@
         "horas",
         "biometria",
         "digital"
+      ],
+      "tour": [
+        {
+          "alvo": "Registro Manual",
+          "texto": "Registre o ponto de um funcionário manualmente."
+        },
+        {
+          "alvo": "Gerenciamento",
+          "texto": "Veja as horas trabalhadas no período e imprima o relatório."
+        },
+        {
+          "alvo": "Biometria Facial",
+          "texto": "Cadastre o rosto dos funcionários para o ponto pela câmera."
+        }
       ]
     },
     {
@@ -759,6 +1045,12 @@
         "acesso",
         "registro",
         "segurança"
+      ],
+      "tour": [
+        {
+          "alvo": "Filtros",
+          "texto": "Filtre os registros por usuário, paciente, ação ou período."
+        }
       ]
     },
     {
@@ -778,6 +1070,12 @@
         "online",
         "login",
         "acesso"
+      ],
+      "tour": [
+        {
+          "alvo": "Online Agora",
+          "texto": "Veja quem está usando o sistema agora e os acessos do período."
+        }
       ]
     },
     {
@@ -797,6 +1095,12 @@
         "cópia",
         "segurança",
         "restaurar"
+      ],
+      "tour": [
+        {
+          "alvo": "Backup",
+          "texto": "Aqui fica a cópia de segurança dos dados da clínica."
+        }
       ]
     },
     {
@@ -816,6 +1120,12 @@
         "cid",
         "diagnóstico",
         "datasus"
+      ],
+      "tour": [
+        {
+          "alvo": "Importar CID-10 Automaticamente",
+          "texto": "Carregue a tabela completa do DataSUS com um clique."
+        }
       ]
     },
     {
@@ -873,6 +1183,16 @@
         "conversa",
         "mensagem",
         "chat"
+      ],
+      "tour": [
+        {
+          "alvo": "Mensagens WhatsApp",
+          "texto": "Escolha o paciente para abrir a conversa."
+        },
+        {
+          "alvo": null,
+          "texto": "Com a conversa aberta, use as Mensagens Rápidas para enviar respostas prontas com um clique."
+        }
       ]
     },
     {
@@ -891,6 +1211,12 @@
         "api oficial",
         "template",
         "whatsapp business"
+      ],
+      "tour": [
+        {
+          "alvo": "WhatsApp oficial",
+          "texto": "Aqui você conecta o número da clínica à API oficial da Meta e escolhe os modelos de mensagem de cada aviso."
+        }
       ]
     },
     {
@@ -913,6 +1239,20 @@
         "impressora",
         "printserver",
         "biometria"
+      ],
+      "tour": [
+        {
+          "alvo": "Conexão WhatsApp",
+          "texto": "Conecte o WhatsApp da clínica."
+        },
+        {
+          "alvo": "Configurações de Mensagem",
+          "texto": "Defina os lembretes de consulta e o pedido de confirmação."
+        },
+        {
+          "alvo": "Menu de Ajuda WhatsApp",
+          "texto": "Escolha quando o menu de ajuda é enviado ao paciente."
+        }
       ]
     },
     {
@@ -938,6 +1278,16 @@
         "elevenlabs",
         "preços",
         "permissões"
+      ],
+      "tour": [
+        {
+          "alvo": "Ajuda por voz",
+          "texto": "Aqui você liga a narração da ajuda e escolhe a voz da ElevenLabs."
+        },
+        {
+          "alvo": "Permissões de Acesso",
+          "texto": "Aqui você controla o que os administradores podem ver."
+        }
       ]
     },
     {
@@ -957,6 +1307,12 @@
         "memed",
         "receita digital",
         "token"
+      ],
+      "tour": [
+        {
+          "alvo": "Profissionais Memed",
+          "texto": "Cadastre os profissionais na Memed para a receita digital."
+        }
       ]
     },
     {

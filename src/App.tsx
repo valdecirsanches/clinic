@@ -36,6 +36,7 @@ import { BackupLocalAgendador } from './components/backup/BackupLocalAgendador';
 import { LimitePlanoAviso } from './components/assinatura/LimitePlanoAviso';
 import { VideoDemoPage } from './pages/VideoDemoPage';
 import { AjudaPainel } from './components/ajuda/AjudaPainel';
+import { TourGuiado } from './components/ajuda/TourGuiado';
 import { MemedProfissionaisPage } from './components/MemedProfissionaisPage';
 import { MedicamentosPage } from './components/MedicamentosPage';
 import { normalizarChaveData, slotValeNaData } from './utils/recorrenciaAgenda';
@@ -354,12 +355,14 @@ function MainApp() {
   const [showAparencia, setShowAparencia] = useState(false);
   // Ajuda da tela atual: botão "?" no cabeçalho ou tecla F1
   const [showAjuda, setShowAjuda] = useState(false);
+  const [tourTopico, setTourTopico] = useState<string | null>(null);
   const temSessao = Boolean(sessao?.usuario);
   useEffect(() => {
     if (!temSessao) return;
     const teclaAjuda = (e: KeyboardEvent) => {
       if (e.key !== 'F1') return;
       e.preventDefault(); // sem isso o navegador abre a ajuda dele
+      setTourTopico(null);
       setShowAjuda((aberta) => !aberta);
     };
     window.addEventListener('keydown', teclaAjuda);
@@ -2294,7 +2297,14 @@ function MainApp() {
           telaAtual={currentPage}
           prontuarioStep={prontuarioStep}
           tipoUsuario={sessao.usuario.tipo}
-          onFechar={() => setShowAjuda(false)} />
+          onFechar={() => setShowAjuda(false)}
+          onIniciarTour={(id) => {
+            setShowAjuda(false);
+            setTourTopico(id);
+          }} />
+        }
+        {tourTopico &&
+        <TourGuiado topicoId={tourTopico} onFechar={() => setTourTopico(null)} />
         }
         <ToastContainer toasts={toasts} onClose={removeToast} />
         <DialogContainer dialogs={dialogs} onClose={removeDialog} />

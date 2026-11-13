@@ -480,7 +480,7 @@ export function Sidebar({
                 <div className="my-4 space-y-3">
                     {profissionais.length > 0 &&
                   !['medico', 'dentista'].includes(tipoUsuario) &&
-                  <div className="px-2">
+                  <div className="px-2" data-tour="profissional">
                           <Select
                       label=""
                       value={profissionalIdSelecionado}

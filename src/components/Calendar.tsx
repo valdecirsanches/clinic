@@ -359,6 +359,7 @@ export function Calendar({
   })();
   return (
     <div
+      data-tour="calendario"
       className="bg-white rounded-lg border border-gray-200 p-4 relative"
       ref={calendarRef}>
       
