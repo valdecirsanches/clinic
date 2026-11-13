@@ -451,6 +451,39 @@ async function middleware(req, res, next) {
 // promoveria a si mesmo a super admin ou mudaria o plano de uma clínica.
 const CAMPOS_PRIVILEGIADOS = ['tipo', 'operadoraId', 'clinicaId', 'ativo', 'permissoesMenu', 'prontuarioTotal'];
 
+// Chaves de configuracoes_globais que pertencem a UMA clínica (sufixo = id da
+// clínica). O resto (Memed, preços, recebimento, permissões, voz…) é do super admin.
+const CONFIGS_DA_CLINICA = [
+{ prefixo: 'procedimento_config_', perfis: ['admin', 'medico', 'dentista'] },
+{ prefixo: 'avaliacao_config_', perfis: ['admin', 'medico', 'dentista'] },
+{ prefixo: 'aniversario_config_', perfis: ['admin', 'medico', 'dentista'] },
+{ prefixo: 'ponto_facial_local_', perfis: ['admin'] },
+// Ativar o ponto facial é do admin (aceita a cobrança); desativar, só o super admin.
+{ prefixo: 'ponto_facial_ativo_', perfis: ['admin'], soAtivar: true }];
+
+
+/** Motivo da recusa (texto) ou null se pode gravar. Super admin nunca chega aqui. */
+async function regraConfiguracaoGlobal(usuario, metodo, caminho, corpo) {
+  const negado = 'Somente o super administrador pode alterar isto.';
+  if (metodo !== 'POST' || caminho !== '/configuracoes-globais') return negado; // excluir: só super admin
+  const chave = String(corpo && corpo.chave || '');
+  const regra = CONFIGS_DA_CLINICA.find((r) => chave.startsWith(r.prefixo));
+  if (!regra) return negado;
+  const clinicaId = chave.slice(regra.prefixo.length);
+  if (!clinicaId || clinicaId === 'NONE' || !(await podeAcessarClinica(usuario, clinicaId))) {
+    return 'Você não tem acesso a esta clínica.';
+  }
+  if (!regra.perfis.includes(usuario.tipo)) return 'Seu perfil não pode alterar esta configuração.';
+  if (regra.soAtivar) {
+    let valor = corpo.valor;
+    if (typeof valor === 'string') {
+      try {valor = JSON.parse(valor);} catch (e) {valor = null;}
+    }
+    if (!valor || valor.ativo !== true) return 'Somente o super administrador pode desativar este serviço.';
+  }
+  return null;
+}
+
 async function regraDeEntidadesGlobais(req, usuario) {
   if (usuario.tipo === 'super_admin') return null;
   const caminho = req.path.replace(/\/+$/, '');
@@ -460,8 +493,14 @@ async function regraDeEntidadesGlobais(req, usuario) {
   const ehAdmin = usuario.tipo === 'admin';
   const proibido = (mensagem) => ({ status: 403, mensagem });
 
-  // Configurações globais e planos do sistema: só leitura fora do super admin
-  if (!leitura && /^\/(configuracoes-globais|planos)(\/|$)/.test(caminho)) {
+  // Configurações globais: só o super admin, exceto as chaves DA CLÍNICA
+  // (procedimentos, avaliação, aniversários, ponto) — ver regraConfiguracaoGlobal.
+  if (!leitura && /^\/configuracoes-globais(\/|$)/.test(caminho)) {
+    const motivo = await regraConfiguracaoGlobal(usuario, metodo, caminho, req.body);
+    return motivo ? proibido(motivo) : null;
+  }
+  // Planos do sistema: só leitura fora do super admin
+  if (!leitura && /^\/planos(\/|$)/.test(caminho)) {
     return proibido('Somente o super administrador pode alterar isto.');
   }
   if (!leitura && /^\/clinicas\/[^/]+\/plano$/.test(caminho)) {
@@ -625,5 +664,6 @@ module.exports = {
   ehClinicaConhecida,
   registrarAcessoClinica,
   garantirTabela,
-  autorizarPrograma
+  autorizarPrograma,
+  regraConfiguracaoGlobal
 };

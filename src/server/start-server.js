@@ -20,33 +20,19 @@ process.on('uncaughtException', (err) => {
 const path = require('path');
 const fs = require('fs');
 try {
-  const dotenv = require('dotenv');
+  // Lê TODOS os .env.local (server/ vence src/, que vence a raiz...). Antes
+  // parava no primeiro e ignorava, por exemplo, a OPENAI_API_KEY de src/.env.local.
+  const { caminhosPadrao, carregarEnv } = require('./services/carregarEnv');
+  const searchPaths = caminhosPadrao(__dirname);
+  const { arquivos, origem } = carregarEnv(searchPaths);
 
-  // Busca .env.local em vários caminhos possíveis
-  const searchPaths = [
-  path.join(__dirname, '.env.local'), // server/.env.local
-  path.resolve(__dirname, '..', '.env.local'), // 1 nível acima (src/)
-  path.resolve(__dirname, '..', '..', '.env.local'), // 2 níveis acima (raiz do projeto)
-  path.resolve(__dirname, '..', '..', '..', '.env.local'), // 3 níveis acima
-  path.join(process.cwd(), '.env.local') // diretório de execução
-  ];
-
-  let loaded = false;
-  for (const envPath of searchPaths) {
-    if (fs.existsSync(envPath)) {
-      // ⭐ override: o .env.local VENCE o ambiente herdado. Sem isso, o PM2
-      // mantinha as variáveis da primeira vez que subiu o processo (ex.:
-      // MYSQL_HOST do teste) e "pm2 restart" nunca trocava o banco, por mais
-      // que o .env.local fosse corrigido.
-      dotenv.config({ path: envPath, override: true });
-      console.log(`🔑 .env.local encontrado em: ${envPath}`);
-      console.log(`🗄️  MySQL em uso: ${process.env.MYSQL_HOST || '(MYSQL_HOST não definido → padrão do código)'} / banco ${process.env.MYSQL_DATABASE || process.env.MYSQL_DB || '(padrão)'}`);
-      loaded = true;
-      break;
+  if (arquivos.length) {
+    arquivos.forEach((envPath) => console.log(`🔑 .env.local encontrado em: ${envPath}`));
+    console.log(`🗄️  MySQL em uso: ${process.env.MYSQL_HOST || '(MYSQL_HOST não definido → padrão do código)'} / banco ${process.env.MYSQL_DATABASE || process.env.MYSQL_DB || '(padrão)'}`);
+    for (const chave of ['OPENAI_API_KEY', 'ELEVENLABS_API_KEY']) {
+      console.log(`🔑 ${chave}: ${process.env[chave] ? `✅ definida${origem[chave] ? ` (${origem[chave]})` : ' (ambiente)'}` : '⚠️ não definida'}`);
     }
-  }
-
-  if (!loaded) {
+  } else {
     console.log(`⚠️ .env.local NÃO encontrado! Caminhos verificados:`);
     searchPaths.forEach((p) => console.log(`   ❌ ${p}`));
     console.log(`   💡 Crie o arquivo .env.local em um destes caminhos com: WAHA_API_KEY=sua_chave`);
