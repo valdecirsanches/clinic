@@ -1,6 +1,6 @@
 /**
- * Configurações globais: o super admin grava tudo; a equipe da clínica só as
- * chaves daquela clínica (procedimentos, avaliação, aniversários, ponto).
+ * Configurações globais são do super admin; as da clínica (procedimentos,
+ * avaliação, aniversários, ponto) são do administrador daquela clínica.
  */
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
@@ -34,9 +34,9 @@ describe('regraConfiguracaoGlobal', () => {
     }
   });
 
-  it('admin e médico gravam as configurações da própria clínica', async () => {
+  it('o admin grava as configurações da própria clínica', async () => {
     expect(await gravar(admin, 'procedimento_config_c1')).toBeNull();
-    expect(await gravar(medico, 'avaliacao_config_c1')).toBeNull();
+    expect(await gravar(admin, 'avaliacao_config_c1')).toBeNull();
     expect(await gravar(admin, 'aniversario_config_c1')).toBeNull();
     expect(await gravar(admin, 'aniversario_config_c2')).toBeNull(); // mesma operadora
   });
@@ -46,8 +46,10 @@ describe('regraConfiguracaoGlobal', () => {
     expect(await gravar(admin, 'procedimento_config_NONE')).toMatch(/acesso/);
   });
 
-  it('atendente não altera configurações da clínica', async () => {
-    expect(await gravar(atendente, 'procedimento_config_c1')).toMatch(/perfil/);
+  it('médico e atendente não alteram configurações da clínica', async () => {
+    expect(await gravar(medico, 'procedimento_config_c1')).toMatch(/perfil/);
+    expect(await gravar(medico, 'avaliacao_config_c1')).toMatch(/perfil/);
+    expect(await gravar(atendente, 'aniversario_config_c1')).toMatch(/perfil/);
   });
 
   it('ponto: só o admin; ativar sim, desativar só o super admin', async () => {

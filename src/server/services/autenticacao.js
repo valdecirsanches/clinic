@@ -452,11 +452,12 @@ async function middleware(req, res, next) {
 const CAMPOS_PRIVILEGIADOS = ['tipo', 'operadoraId', 'clinicaId', 'ativo', 'permissoesMenu', 'prontuarioTotal'];
 
 // Chaves de configuracoes_globais que pertencem a UMA clínica (sufixo = id da
-// clínica). O resto (Memed, preços, recebimento, permissões, voz…) é do super admin.
+// clínica): são do ADMINISTRADOR da clínica. O resto (Memed, preços, recebimento,
+// permissões, voz…) é configuração global: só o super admin.
 const CONFIGS_DA_CLINICA = [
-{ prefixo: 'procedimento_config_', perfis: ['admin', 'medico', 'dentista'] },
-{ prefixo: 'avaliacao_config_', perfis: ['admin', 'medico', 'dentista'] },
-{ prefixo: 'aniversario_config_', perfis: ['admin', 'medico', 'dentista'] },
+{ prefixo: 'procedimento_config_', perfis: ['admin'] },
+{ prefixo: 'avaliacao_config_', perfis: ['admin'] },
+{ prefixo: 'aniversario_config_', perfis: ['admin'] },
 { prefixo: 'ponto_facial_local_', perfis: ['admin'] },
 // Ativar o ponto facial é do admin (aceita a cobrança); desativar, só o super admin.
 { prefixo: 'ponto_facial_ativo_', perfis: ['admin'], soAtivar: true }];
