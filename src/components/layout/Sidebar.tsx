@@ -33,7 +33,7 @@ import { Calendar } from '../Calendar';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { API_BASE_URL } from '../../config/api';
-import { BancoEmUso, VersaoBotao } from './VersaoMenu';
+import { BancoEmUso, VersaoCartao } from './VersaoMenu';
 // ⭐ Itens "básicos" que ficam sempre visíveis (Pacientes, Empresas, Dashboard,
 // Fila) mesmo quando o admin configurou uma whitelist customizada.
 import { MENU_ITENS_BASICOS_SEMPRE_VISIVEIS } from '../../utils/permissoes';
@@ -426,11 +426,8 @@ export function Sidebar({
               <XIcon className="w-5 h-5" />
             </button>
           </div>
-          {/* No celular a versão não cabe no topo: aparece aqui */}
-          <div className="mt-2 sm:hidden">
-            <VersaoBotao />
-          </div>
-          {/* Banco em uso (a versão fica no topo da tela) */}
+          {/* Versão (abre "O que mudou") e banco em uso */}
+          <VersaoCartao />
           <BancoEmUso />
         </div>
 

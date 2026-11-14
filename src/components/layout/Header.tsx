@@ -6,7 +6,6 @@ import { Select } from '../ui/Select';
 import { TrocaSenhaModal } from '../TrocaSenhaModal';
 import { Sessao, Operadora, Clinica } from '../../types';
 import { API_BASE_URL } from '../../config/api';
-import { VersaoBotao } from './VersaoMenu';
 interface HeaderProps {
   sessao: Sessao;
   onLogout: () => void;
@@ -200,10 +199,7 @@ export function Header({
                   </div>}
               </div>}
 
-            {/* Versão do sistema (abre "O que mudou"). Nome e perfil ficam só à direita. */}
-            <span className="hidden sm:inline-flex">
-              <VersaoBotao />
-            </span>
+            {/* Nome e perfil do usuário ficam só à direita (menu do usuário) */}
 
             {/* Seletores de Operadora e Clínica para Super Admin - hide on small mobile */}
             {sessao.usuario.tipo === 'super_admin' && <div className="hidden md:flex items-center gap-4">
