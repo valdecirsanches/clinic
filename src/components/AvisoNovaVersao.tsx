@@ -4,6 +4,7 @@ import { DEMO_VIDEO } from '../utils/modoDemo';
 import { VERSAO_ATUAL, type VersaoHistorico } from '../config/version';
 import { versoesNovas } from '../utils/historicoVersoes';
 import { HistoricoVersoesModal } from './versao/HistoricoVersoesModal';
+import { avisarQueEstaAtualizando, marcarVersaoVista } from '../utils/versaoVista';
 
 // ==================== AVISO DE VERSÃO NOVA ====================
 // Ao abrir, guarda a versão publicada (/versao.json, gerado pelo
@@ -80,7 +81,11 @@ export function AvisoNovaVersao() {
     };
     document.addEventListener('visibilitychange', aoVoltar);
     window.addEventListener('focus', aoVoltar);
+    // Internet voltou (ex.: notebook que estava desligado): confere na hora.
+    const aoReconectar = () => conferir(true);
+    window.addEventListener('online', aoReconectar);
     return () => {
+      window.removeEventListener('online', aoReconectar);
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', aoVoltar);
       window.removeEventListener('focus', aoVoltar);
@@ -134,7 +139,12 @@ export function AvisoNovaVersao() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  avisarQueEstaAtualizando();
+                  // As novidades já foram mostradas aqui: depois da recarga, só confirma.
+                  if (nova.versao) marcarVersaoVista(nova.versao);
+                  window.location.reload();
+                }}
                 className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-300">
                 
                 <RefreshCwIcon className="h-4 w-4" /> Atualizar agora

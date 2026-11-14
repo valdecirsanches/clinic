@@ -36,6 +36,7 @@ if ((import.meta as any)?.env?.PROD === true && typeof window !== 'undefined') {
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { AvisoNovaVersao } from './components/AvisoNovaVersao';
+import { NovidadesDaVersao } from './components/versao/NovidadesDaVersao';
 import './index.css';
 import { clearWhatsAppCache } from './utils/clearWhatsAppCache';
 // Expõe função de limpeza globalmente
@@ -75,5 +76,6 @@ root.render(
   <>
     <App />
     <AvisoNovaVersao />
+    <NovidadesDaVersao />
   </>
 );

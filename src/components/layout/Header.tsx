@@ -6,7 +6,7 @@ import { Select } from '../ui/Select';
 import { TrocaSenhaModal } from '../TrocaSenhaModal';
 import { Sessao, Operadora, Clinica } from '../../types';
 import { API_BASE_URL } from '../../config/api';
-import { APP_VERSION } from '../../config/version';
+import { VersaoBotao } from './VersaoMenu';
 interface HeaderProps {
   sessao: Sessao;
   onLogout: () => void;
@@ -183,7 +183,7 @@ export function Header({
   // Obtém o logo da clínica atual
   const logoUrl = sessao.clinicaAtual?.logoUrl;
   return <>
-      <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4">
+      <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 lg:gap-6 min-w-0">
             {/* ⭐ Hamburger menu - mobile only */}
@@ -194,20 +194,16 @@ export function Header({
 
             {/* ⭐ LOGO DA CLÍNICA */}
             {sessao.clinicaAtual && <div className="flex-shrink-0 hidden sm:block">
-                {logoUrl ? <img src={logoUrl.startsWith('data:') ? logoUrl : `${API_BASE_URL}${logoUrl}`} alt={`Logo ${sessao.clinicaAtual.nome}`} className="h-12 w-auto max-w-[120px] object-contain" /> : <div className="h-12 w-12 bg-teal-100 rounded-lg flex items-center justify-center" title={sessao.clinicaAtual.nome}>
+                {logoUrl ? <img src={logoUrl.startsWith('data:') ? logoUrl : `${API_BASE_URL}${logoUrl}`} alt={`Logo ${sessao.clinicaAtual.nome}`} className="h-9 w-auto max-w-[110px] object-contain" /> : <div className="h-9 w-9 bg-teal-100 rounded-lg flex items-center justify-center" title={sessao.clinicaAtual.nome}>
                 
-                    <BuildingIcon className="w-6 h-6 text-teal-600" />
+                    <BuildingIcon className="w-5 h-5 text-teal-600" />
                   </div>}
               </div>}
 
-            <div className="min-w-0">
-              <h2 className="text-base lg:text-lg font-semibold text-gray-900 truncate">
-                {sessao.usuario.nome}
-              </h2>
-              <p className="text-xs lg:text-sm text-gray-500 truncate">
-                {getTipoLabel(sessao.usuario.tipo)}
-              </p>
-            </div>
+            {/* Versão do sistema (abre "O que mudou"). Nome e perfil ficam só à direita. */}
+            <span className="hidden sm:inline-flex">
+              <VersaoBotao />
+            </span>
 
             {/* Seletores de Operadora e Clínica para Super Admin - hide on small mobile */}
             {sessao.usuario.tipo === 'super_admin' && <div className="hidden md:flex items-center gap-4">
@@ -257,36 +253,18 @@ export function Header({
                   </div>
                 </div>}
 
-            {/* Info Operadora/Clínica - hide on mobile */}
-            {sessao.usuario.tipo !== 'super_admin' && sessao.usuario.operadoraId && <div className="hidden lg:block ml-4 px-4 py-2 bg-teal-50 border border-teal-200 rounded-lg">
-                  {operadoras.find((o) => o.id === sessao.usuario.operadoraId) && <p className="text-sm">
-                      <span className="text-gray-600">Operadora:</span>{' '}
-                      <span className="font-bold text-teal-700">
-                        {operadoras.find((o) => o.id === sessao.usuario.operadoraId)?.nome}
-                      </span>
-                    </p>}
-                  {sessao.clinicaAtual && <p className="text-sm">
-                      <span className="text-gray-600">Clínica:</span>{' '}
-                      <span className="font-bold text-teal-700">
-                        {sessao.clinicaAtual.nome}
-                      </span>
-                    </p>}
-                </div>}
-
-            {sessao.usuario.tipo === 'super_admin' && (sessao.operadoraSelecionada || sessao.clinicaAtual) && <div className="hidden lg:block ml-4 px-4 py-2 bg-teal-50 border border-teal-200 rounded-lg">
-                  {sessao.operadoraSelecionada && <p className="text-sm">
-                      <span className="text-gray-600">Operadora:</span>{' '}
-                      <span className="font-bold text-teal-700">
-                        {sessao.operadoraSelecionada.nome}
-                      </span>
-                    </p>}
-                  {sessao.clinicaAtual && <p className="text-sm">
-                      <span className="text-gray-600">Clínica:</span>{' '}
-                      <span className="font-bold text-teal-700">
-                        {sessao.clinicaAtual.nome}
-                      </span>
-                    </p>}
-                </div>}
+            {/* Operadora em uma linha (a clínica já aparece no seletor ao lado) */}
+            {(() => {
+            const operadoraNome = sessao.usuario.tipo === 'super_admin' ?
+            null // o super admin já vê a operadora no próprio seletor
+            : operadoras.find((o) => o.id === sessao.usuario.operadoraId)?.nome;
+            return operadoraNome ?
+            <span className="hidden xl:inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs text-teal-800 max-w-[260px]" title={`Operadora: ${operadoraNome}`}>
+                  <BuildingIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="truncate font-medium">{operadoraNome}</span>
+                </span> :
+            null;
+          })()}
           </div>
 
           <div className="flex items-center gap-1 lg:gap-4 flex-shrink-0">
@@ -390,8 +368,9 @@ export function Header({
                 aria-expanded={isMenuUsuarioOpen}
                 title="Seu usuário: segurança e aparência"
                 className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 sm:pl-3 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-300">
-                <span className="hidden sm:block max-w-[200px] truncate text-sm font-medium text-gray-700">
-                  {sessao.usuario.nome || primeiroNome}
+                <span className="hidden sm:flex max-w-[200px] flex-col items-end text-right leading-tight">
+                  <span className="max-w-full truncate text-sm font-medium text-gray-700">{sessao.usuario.nome || primeiroNome}</span>
+                  <span className="text-[11px] text-gray-500">{getTipoLabel(sessao.usuario.tipo)}</span>
                 </span>
                 <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-teal-100 font-bold text-teal-700">
                   {fotoUsuario && !fotoFalhou ?
@@ -414,6 +393,7 @@ export function Header({
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-gray-900">{sessao.usuario.nome}</p>
                         {sessao.usuario.email && <p className="truncate text-xs text-gray-500">{sessao.usuario.email}</p>}
+                        <p className="mt-0.5 text-[11px] font-medium text-teal-700">{getTipoLabel(sessao.usuario.tipo)}</p>
                       </div>
                     </div>
                     <div className="py-1">

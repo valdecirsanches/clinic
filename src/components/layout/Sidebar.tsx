@@ -33,8 +33,7 @@ import { Calendar } from '../Calendar';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { API_BASE_URL } from '../../config/api';
-import { APP_VERSION } from '../../config/version';
-import { LinkOQueMudou } from '../versao/LinkOQueMudou';
+import { BancoEmUso, VersaoBotao } from './VersaoMenu';
 // ⭐ Itens "básicos" que ficam sempre visíveis (Pacientes, Empresas, Dashboard,
 // Fila) mesmo quando o admin configurou uma whitelist customizada.
 import { MENU_ITENS_BASICOS_SEMPRE_VISIVEIS } from '../../utils/permissoes';
@@ -412,50 +411,27 @@ export function Sidebar({
           lg:static lg:translate-x-0 lg:z-20 lg:h-full
         `}>
         
-        <div className={`p-6 border-b border-gray-200 flex items-center justify-between ${recolhido ? 'lg:hidden' : ''}`}>
-          <div>
-            <h1 className="text-2xl font-bold text-teal-600">EasyClin 2.0</h1>
-            <p className="text-sm text-gray-500">Gestão Clínica</p>
-            <p className="text-xs text-gray-400 mt-1 font-mono">
-              {APP_VERSION} •{' '}
-              {(() => {
-                if (typeof window === 'undefined') return 'DB: N/A';
-                const sessaoStr = localStorage.getItem('sessao');
-                if (!sessaoStr) return 'DB: N/A';
-                try {
-                  const sessao = JSON.parse(sessaoStr);
-                  const clinicaId = sessao.clinicaAtual?.id;
-                  const operadoraId =
-                  sessao.operadoraSelecionada?.id ||
-                  sessao.usuario?.operadoraId ||
-                  '';
-                  const opLabel = operadoraId ? ` • OP: ${operadoraId}` : '';
-                  if (clinicaId) {
-                    return `DB: ${clinicaId}${opLabel}`;
-                  }
-                  if (sessao.operadoraSelecionada) {
-                    return `DB: Selecione uma clínica${opLabel}`;
-                  }
-                  if (sessao.usuario?.tipo === 'super_admin') {
-                    return 'DB: Selecione uma operadora';
-                  }
-                  return 'DB: N/A';
-                } catch {
-                  return 'DB: N/A';
-                }
-              })()}
-            </p>
-            <p className="text-xs mt-0.5">
-              <LinkOQueMudou />
-            </p>
+        <div className={`px-5 pt-4 pb-3 border-b border-gray-200 ${recolhido ? 'lg:hidden' : ''}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-2xl font-bold leading-tight text-teal-600">EasyClin 2.0</h1>
+              <p className="text-sm text-gray-500">Gestão Clínica</p>
+            </div>
+            {/* ⭐ Botão fechar no mobile */}
+            <button
+              onClick={onCloseMobile}
+              className="lg:hidden p-2 -mr-2 rounded-lg hover:bg-gray-100 text-gray-500"
+              aria-label="Fechar menu">
+              
+              <XIcon className="w-5 h-5" />
+            </button>
           </div>
-          {/* ⭐ Botão fechar no mobile */}
-          <button
-            onClick={onCloseMobile}
-            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-500">
-            
-            <XIcon className="w-5 h-5" />
-          </button>
+          {/* No celular a versão não cabe no topo: aparece aqui */}
+          <div className="mt-2 sm:hidden">
+            <VersaoBotao />
+          </div>
+          {/* Banco em uso (a versão fica no topo da tela) */}
+          <BancoEmUso />
         </div>
 
         <nav

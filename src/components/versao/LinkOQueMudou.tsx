@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { HistoricoVersoesModal } from './HistoricoVersoesModal';
+import { marcarVersaoVista } from '../../utils/versaoVista';
 
 /** Link "O que mudou" ao lado do número da versão; abre o histórico. */
 export function LinkOQueMudou({ className = '' }: {className?: string;}) {
@@ -10,6 +11,7 @@ export function LinkOQueMudou({ className = '' }: {className?: string;}) {
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          marcarVersaoVista();
           setAberto(true);
         }}
         className={`font-sans text-teal-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded ${className}`}>

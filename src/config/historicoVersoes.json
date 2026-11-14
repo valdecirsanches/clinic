@@ -2,6 +2,18 @@
   "_leia": "FONTE ÚNICA da versão do sistema. A cada entrega, acrescente uma versão NO TOPO, com o que mudou escrito para o usuário da clínica. O número exibido (config/version.ts), o aviso de versão nova e a janela 'O que mudou' saem daqui.",
   "versoes": [
     {
+      "versao": "2.3.0",
+      "data": "2026-11-14",
+      "itens": [
+        "Topo da tela mais baixo, sobrando mais espaço: o nome do usuário aparece só à direita, com o perfil embaixo.",
+        "A versão do sistema fica no topo, à esquerda. Clique nela para ver o que mudou; o selo \"Novo\" indica novidades que você ainda não viu.",
+        "Quem abre o sistema já atualizado vê o que mudou desde a última vez que usou.",
+        "Depois de clicar em \"Atualizar agora\", aparece a confirmação \"Atualizado para a versão…\".",
+        "O sistema também procura atualização quando a internet volta.",
+        "Menu lateral mais limpo: saiu a operadora; fica só o banco em uso, em letra discreta."
+      ]
+    },
+    {
       "versao": "2.2.1",
       "data": "2026-11-14",
       "itens": [
