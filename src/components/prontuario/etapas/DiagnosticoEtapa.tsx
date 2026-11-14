@@ -1,3 +1,4 @@
+import { dataLocal } from '../../../utils/dataLocal';
 import React, { useCallback, useEffect, useRef, useState, Component } from 'react';
 import { EditorDocumento } from '../EditorDocumento';
 import { useDitadoEtapa } from '../../../hooks/useDitadoEtapa';
@@ -478,7 +479,7 @@ export function DiagnosticoEtapa({
           <div key={index} className="text-sm text-gray-600">
                 <p className="font-medium text-gray-800">
                   Último Diagnóstico:{' '}
-                  {new Date(h.data).toLocaleDateString('pt-BR')}
+                  {(dataLocal(h.data) || new Date(NaN)).toLocaleDateString('pt-BR')}
                 </p>
                 {h.diagnosticoPrincipal &&
             <p>

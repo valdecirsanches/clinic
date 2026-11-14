@@ -1,3 +1,4 @@
+import { dataLocal, ehSoDia, formatarDataAtendimento } from '../../../utils/dataLocal';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   FileTextIcon,
@@ -158,21 +159,15 @@ export function ResumoEtapa({
   // ⭐ Ordena o histórico por data DESC (mais recente primeiro) — fonte única de
   // verdade para a lista E para identificar qual é o "Mais recente". A API pode
   // devolver em ordem inconsistente, então ordenamos aqui no cliente.
-  const parseDataAtendimento = (a: Atendimento): number => {
-    const raw = String(
-      (a as any).criadoEm || (a as any).data || (a as any).dataConsulta || ''
-    ).trim();
-    if (!raw) return 0;
-    const d = new Date(raw);
-    if (!isNaN(d.getTime())) return d.getTime();
-    let somenteData = raw;
-    if (somenteData.includes('T')) somenteData = somenteData.split('T')[0];
-    if (somenteData.includes(' ')) somenteData = somenteData.split(' ')[0];
-    const d2 = /^\d{4}-\d{2}-\d{2}$/.test(somenteData) ?
-    new Date(somenteData + 'T12:00:00') :
-    new Date(raw);
-    return isNaN(d2.getTime()) ? 0 : d2.getTime();
+  // Data do atendimento: dia + horário da consulta no fuso LOCAL. A consulta
+  // guarda `data` só com o dia ("AAAA-MM-DD"); new Date() a lia como UTC e o
+  // atendimento aparecia um dia antes, às 21:00.
+  const dataDoAtendimento = (a: Atendimento): Date | null => {
+    const at = a as any;
+    if (at.data && ehSoDia(at.data) && at.horario) return dataLocal(at.data, at.horario);
+    return dataLocal(at.criadoEm || at.data || at.dataConsulta, at.horario);
   };
+  const parseDataAtendimento = (a: Atendimento): number => dataDoAtendimento(a)?.getTime() || 0;
   const atendimentosOrdenados = [...atendimentos].sort(
     (a, b) => parseDataAtendimento(b) - parseDataAtendimento(a)
   );
@@ -698,42 +693,12 @@ export function ResumoEtapa({
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-gray-900">
                             {(() => {
-                            // ⭐ Data da consulta — parse seguro contra fuso horário.
-                            // Aceita "2026-06-15", "2026-06-15 00:00:00" e ISO.
-                            const raw = String(
-                              (atendimento as any).criadoEm ||
-                              (atendimento as any).data ||
-                              (atendimento as any).dataConsulta ||
-                              ''
-                            ).trim();
-                            if (!raw) return 'Data não informada';
-                            const d = new Date(raw);
-                            if (isNaN(d.getTime())) {
-                              // Fallback para data sem hora
-                              let somenteData = raw;
-                              if (somenteData.includes('T'))
-                              somenteData = somenteData.split('T')[0];
-                              if (somenteData.includes(' '))
-                              somenteData = somenteData.split(' ')[0];
-                              const d2 = /^\d{4}-\d{2}-\d{2}$/.test(
-                                somenteData
-                              ) ?
-                              new Date(somenteData + 'T12:00:00') :
-                              new Date(raw);
-                              if (isNaN(d2.getTime())) return raw;
-                              return d2.toLocaleDateString('pt-BR', {
-                                day: '2-digit',
-                                month: 'long',
-                                year: 'numeric'
-                              });
-                            }
-                            return d.toLocaleDateString('pt-BR', {
-                              day: '2-digit',
-                              month: 'long',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            });
+                            // ⭐ Data da consulta no fuso local (ver dataDoAtendimento).
+                            const at = atendimento as any;
+                            const usaConsulta = at.data && ehSoDia(at.data) && at.horario;
+                            const valor = usaConsulta ? at.data : at.criadoEm || at.data || at.dataConsulta;
+                            if (!valor) return 'Data não informada';
+                            return formatarDataAtendimento(valor, at.horario);
                           })()}
                           </p>
                           {isAberto &&

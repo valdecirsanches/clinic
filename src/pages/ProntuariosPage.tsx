@@ -1,3 +1,4 @@
+import { dataLocal } from '../utils/dataLocal';
 import React, { useEffect, useState, createElement, Component } from 'react';
 import { PlusIcon, FileTextIcon, EyeIcon, EditIcon, PenToolIcon, CheckCircleIcon, UserIcon, CalendarIcon, ClipboardListIcon, AlertCircleIcon, HeartPulseIcon, PillIcon, ChevronDownIcon, ChevronUpIcon, ArrowLeftIcon, ClipboardIcon, PrinterIcon, XIcon, ActivityIcon, StickyNoteIcon, StethoscopeIcon } from 'lucide-react';
 import { Card } from '../components/ui/Card';
@@ -51,7 +52,7 @@ function AtendimentoCard({
   const [showResumo, setShowResumo] = useState(false);
   // ⭐ Gera texto do resumo do atendimento
   const gerarResumoTexto = () => {
-    const dataFormatada = new Date(atendimento.data).toLocaleDateString('pt-BR', {
+    const dataFormatada = (dataLocal(atendimento.data, (atendimento as any).horario) || new Date(NaN)).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'long',
       year: 'numeric'
@@ -135,7 +136,7 @@ function AtendimentoCard({
   };
   // ⭐ Imprime resumo
   const imprimirResumo = () => {
-    const dataFormatada = new Date(atendimento.data).toLocaleDateString('pt-BR', {
+    const dataFormatada = (dataLocal(atendimento.data, (atendimento as any).horario) || new Date(NaN)).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'long',
       year: 'numeric'
@@ -196,7 +197,7 @@ function AtendimentoCard({
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-900">
-              {new Date(atendimento.data).toLocaleDateString('pt-BR', {
+              {(dataLocal(atendimento.data, (atendimento as any).horario) || new Date(NaN)).toLocaleDateString('pt-BR', {
               day: '2-digit',
               month: 'long',
               year: 'numeric'
@@ -284,7 +285,7 @@ function AtendimentoCard({
                     Resumo do Atendimento
                   </h3>
                   <p className="text-teal-100 text-xs">
-                    {new Date(atendimento.data).toLocaleDateString('pt-BR', {
+                    {(dataLocal(atendimento.data, (atendimento as any).horario) || new Date(NaN)).toLocaleDateString('pt-BR', {
                   day: '2-digit',
                   month: 'long',
                   year: 'numeric'
@@ -336,7 +337,7 @@ function AtendimentoCard({
                   <CalendarIcon className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-500">Data:</span>
                   <span className="font-semibold text-gray-900">
-                    {new Date(atendimento.data).toLocaleDateString('pt-BR')}
+                    {(dataLocal(atendimento.data, (atendimento as any).horario) || new Date(NaN)).toLocaleDateString('pt-BR')}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -560,7 +561,7 @@ function ProntuarioCard({
                   </span>
                   {ultimaConsulta && <span className="text-sm text-gray-500">
                       • Última:{' '}
-                      {new Date(ultimaConsulta.data).toLocaleDateString('pt-BR')}
+                      {(dataLocal(ultimaConsulta.data, (ultimaConsulta as any).horario) || new Date(NaN)).toLocaleDateString('pt-BR')}
                     </span>}
                 </div>
                 <div className="flex items-center gap-2">
@@ -570,7 +571,7 @@ function ProntuarioCard({
                   </span>
                   {ultimoAtendimento && <span className="text-sm text-teal-600/80">
                       • Último registro:{' '}
-                      {new Date(ultimoAtendimento.data).toLocaleDateString('pt-BR')}
+                      {(dataLocal(ultimoAtendimento.data, (ultimoAtendimento as any).horario) || new Date(NaN)).toLocaleDateString('pt-BR')}
                     </span>}
                 </div>
               </div>
