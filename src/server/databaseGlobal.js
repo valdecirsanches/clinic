@@ -80,7 +80,7 @@ async function initGlobalDatabase() {
       cidade VARCHAR(255),
       uf VARCHAR(2),
       plano VARCHAR(50) DEFAULT 'gratuito',
-      logoUrl TEXT,
+      logoUrl LONGTEXT,
       latitude DOUBLE,
       longitude DOUBLE
     );
@@ -238,6 +238,22 @@ async function migrateColumns() {
   // com bancos que possam ter sido criados antes
   await migrarColuna('operadoras', 'planoId', "VARCHAR(50) DEFAULT 'gratuito'");
   await migrarColuna('operadoras', 'logoUrl', 'LONGTEXT');
+
+  // ⭐ O logotipo da clínica é guardado em base64. Bancos antigos criaram a
+  //    coluna como TEXT (máx. 64 KB): qualquer logo maior dava "Data too long"
+  //    e o cadastro voltava sem logo. Amplia para LONGTEXT (igual à operadora).
+  try {
+    const [tipoLogo] = await poolPromise.execute(
+      `SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'clinicas' AND COLUMN_NAME = 'logoUrl'`,
+      [GLOBAL_DB_NAME]
+    );
+    if (tipoLogo.length > 0 && String(tipoLogo[0].DATA_TYPE).toLowerCase() !== 'longtext') {
+      await poolPromise.execute('ALTER TABLE `clinicas` MODIFY COLUMN `logoUrl` LONGTEXT');
+      console.log('✅ Migração: clinicas.logoUrl ampliada para LONGTEXT');
+    }
+  } catch (err) {
+    console.error('❌ Erro ao ampliar clinicas.logoUrl:', err.message);
+  }
 
   // ⭐ Campos do profissional: titulo, cabecalho e RQEs
   await migrarColuna('usuarios', 'titulo', 'VARCHAR(100)');

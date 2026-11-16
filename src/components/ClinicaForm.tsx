@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { reduzirImagem } from '../utils/imagemLogo';
 import { Modal } from './ui/Modal';
 import { Input } from './ui/Input';
 import { useToast } from '../hooks/useToast';
@@ -165,27 +166,32 @@ export function ClinicaForm({
       showError('Erro', 'Por favor, selecione uma imagem válida.');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      showError('Erro', 'A imagem deve ter no máximo 2MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      showError('Erro', 'A imagem deve ter no máximo 10 MB.');
       return;
     }
     setUploadingLogo(true);
     try {
-      // Converte para base64 para preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setLogoPreview(base64);
-        setFormData((prev) => ({
-          ...prev,
-          logoUrl: base64
-        }));
-        setUploadingLogo(false);
-      };
-      reader.readAsDataURL(file);
+      const original = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+        reader.readAsDataURL(file);
+      });
+      // Reduz antes de guardar: o logo vai para o cadastro, a sessão e os
+      // documentos impressos; uma imagem grande deixava tudo pesado.
+      const base64 = await reduzirImagem(original);
+      setLogoPreview(base64);
+      setFormData((prev) => ({
+        ...prev,
+        logoUrl: base64
+      }));
     } catch (err) {
       console.error('Erro ao processar imagem:', err);
+      showError('Erro', 'Não foi possível usar esta imagem. Tente outro arquivo.');
+    } finally {
       setUploadingLogo(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
   const handleRemoveLogo = () => {

@@ -18,7 +18,7 @@ const ensureColumns = async () => {
   { name: 'cidade', type: 'VARCHAR(255)' },
   { name: 'uf', type: 'VARCHAR(2)' },
   { name: 'plano', type: 'VARCHAR(50)' },
-  { name: 'logoUrl', type: 'TEXT' },
+  { name: 'logoUrl', type: 'LONGTEXT' },
   { name: 'latitude', type: 'DOUBLE' },
   { name: 'longitude', type: 'DOUBLE' }];
 

@@ -2122,16 +2122,38 @@ function MainApp() {
         return (
           <ClinicasPage
             clinicas={clinicas}
-            onAddClinica={(c) => {
-              addClinica({
-                ...c,
-                operadoraId: operadoraId || ''
-              });
-              success('Clínica Cadastrada', `${c.nome} foi adicionada`);
+            onAddClinica={async (c) => {
+              try {
+                await addClinica({
+                  ...c,
+                  operadoraId: operadoraId || ''
+                });
+                success('Clínica Cadastrada', `${c.nome} foi adicionada`);
+              } catch (e: any) {
+                error('Não foi possível cadastrar', e?.message || 'Tente novamente.');
+              }
             }}
-            onUpdateClinica={(id, data) => {
-              updateClinica(id, data);
-              success('Clínica Atualizada', 'As alterações foram salvas');
+            onUpdateClinica={async (id, data) => {
+              try {
+                await updateClinica(id, data);
+                // Logo da clínica em uso: o cabeçalho e os documentos leem a
+                // sessão — atualiza na hora, sem precisar entrar de novo.
+                if (data.logoUrl !== undefined) {
+                  try {
+                    const s = JSON.parse(localStorage.getItem('sessao') || '{}');
+                    if (s?.clinicaAtual?.id === id) {
+                      s.clinicaAtual.logoUrl = data.logoUrl;
+                      localStorage.setItem('sessao', JSON.stringify(s));
+                      window.dispatchEvent(new Event('sessao-updated'));
+                    }
+                  } catch {
+
+                    /* sessão inválida: nada a sincronizar */}
+                }
+                success('Clínica Atualizada', 'As alterações foram salvas');
+              } catch (e: any) {
+                error('Não foi possível salvar', e?.message || 'Tente novamente.');
+              }
             }}
             onDeleteClinica={async (id) => {
               const clinica = clinicas.find((c) => c.id === id);

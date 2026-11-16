@@ -2,6 +2,15 @@
   "_leia": "FONTE ÚNICA da versão do sistema. A cada entrega, acrescente uma versão NO TOPO, com o que mudou escrito para o usuário da clínica. O número exibido (config/version.ts), o aviso de versão nova e a janela 'O que mudou' saem daqui.",
   "versoes": [
     {
+      "versao": "2.3.1",
+      "data": "2026-11-16",
+      "itens": [
+        "Cadastro da clínica: o logotipo enviado agora fica salvo (antes, logos maiores eram descartados e a clínica continuava sem logo).",
+        "O logotipo é ajustado automaticamente para um tamanho leve, sem perder nitidez, e já aparece no topo da tela ao salvar.",
+        "Se o cadastro da clínica não puder ser salvo, o sistema avisa em vez de mostrar \"alterações salvas\"."
+      ]
+    },
+    {
       "versao": "2.3.0",
       "data": "2026-11-14",
       "itens": [

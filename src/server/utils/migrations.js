@@ -783,7 +783,7 @@ async function runClinicasMigrations() {
     await migrarColunaGlobal('clinicas', 'bairro', 'VARCHAR(255)');
     await migrarColunaGlobal('clinicas', 'cidade', 'VARCHAR(255)');
     await migrarColunaGlobal('clinicas', 'uf', 'VARCHAR(2)');
-    await migrarColunaGlobal('clinicas', 'logoUrl', 'TEXT');
+    await migrarColunaGlobal('clinicas', 'logoUrl', 'LONGTEXT');
     await migrarColunaGlobal('clinicas', 'latitude', 'DOUBLE');
     await migrarColunaGlobal('clinicas', 'longitude', 'DOUBLE');
   } catch (err) {
