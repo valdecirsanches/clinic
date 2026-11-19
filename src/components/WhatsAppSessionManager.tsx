@@ -46,6 +46,10 @@ interface WhatsAppSessionManagerProps {
   onSessionNameChange: (name: string) => void;
   onSessionExistenceChange?: (exists: boolean) => void;
   isSuperAdmin?: boolean;
+  /** Clínica atual: habilita "Conectar o WhatsApp desta clínica" */
+  clinicaId?: string;
+  /** Depois de criar a sessão: a tela grava o novo servidor/nome */
+  onSessaoCriada?: (dados: {serverUrl: string;sessionName: string;canalAtivo: boolean;}) => Promise<void> | void;
 }
 
 export function WhatsAppSessionManager({
@@ -56,7 +60,9 @@ export function WhatsAppSessionManager({
   onServerUrlChange,
   onSessionNameChange,
   onSessionExistenceChange,
-  isSuperAdmin = false
+  isSuperAdmin = false,
+  clinicaId,
+  onSessaoCriada
 }: WhatsAppSessionManagerProps) {
   const serverUrl = rawServerUrl.trim().replace(/\/+$/, '');
   const configuredServerUrl = savedServerUrl.trim().replace(/\/+$/, '');
@@ -144,7 +150,11 @@ export function WhatsAppSessionManager({
         sessionExists: false,
         message: hasUnsavedSessionChange ?
         'A conexão foi alterada. Salve a configuração antes de verificar a nova sessão.' :
-        'Informe e salve o servidor WAHA e o nome da sessão para continuar.'
+        isSuperAdmin ?
+        'Informe e salve o servidor WAHA e o nome da sessão, ou use "Conectar o WhatsApp desta clínica".' :
+        clinicaId ?
+        'O WhatsApp desta clínica ainda não foi conectado.' :
+        'O WhatsApp desta clínica ainda não foi conectado. Peça ao administrador da clínica para conectar em Configurações › Conexão WhatsApp.'
       };
       applySnapshot(nextSnapshot, configuredSessionName || sessionName.trim());
       return nextSnapshot;
@@ -230,6 +240,18 @@ export function WhatsAppSessionManager({
     void checkStatus();
   }, [checkStatus]);
 
+  // Logo depois de criar: se a sessão aparecer parada, já manda iniciar (QR Code)
+  useEffect(() => {
+    if (!iniciarAoDetectarRef.current) return;
+    if (snapshot.status === 'stopped' && snapshot.sessionExists) {
+      iniciarAoDetectarRef.current = false;
+      void startExistingSession();
+    } else if (snapshot.status === 'waiting_scan' || snapshot.status === 'connected') {
+      iniciarAoDetectarRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.status, snapshot.sessionExists]);
+
   useEffect(() => {
     if (pollRef.current) {
       window.clearInterval(pollRef.current);
@@ -247,6 +269,37 @@ export function WhatsAppSessionManager({
       }
     };
   }, [checkStatus, snapshot.status]);
+
+  // ---------- Criar a sessão da própria clínica (admin) ----------
+  const [criando, setCriando] = useState(false);
+  const iniciarAoDetectarRef = useRef(false);
+  const criarSessaoDaClinica = async () => {
+    if (!clinicaId) return;
+    setCriando(true);
+    setActionMessage(null);
+    setActionError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/whatsapp/session/criar-da-clinica`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicaId })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Não foi possível preparar a conexão do WhatsApp.');
+      }
+      iniciarAoDetectarRef.current = true;
+      await onSessaoCriada?.({ serverUrl: data.serverUrl, sessionName: data.sessionName, canalAtivo: Boolean(data.canalAtivo) });
+      setActionMessage(
+        'Conexão preparada! Agora leia o QR Code com o WhatsApp do celular da clínica.' + (
+        data.canalAtivo ? '' : ' Depois, toque em "Ativar" em Canal WhatsApp para começar a enviar mensagens.')
+      );
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Não foi possível preparar a conexão do WhatsApp.');
+    } finally {
+      setCriando(false);
+    }
+  };
 
   const startExistingSession = async () => {
     if (!snapshot.sessionExists || !serverUrl || !configuredSessionName) return;
@@ -454,7 +507,7 @@ export function WhatsAppSessionManager({
             </div>
           }
 
-          {!isSuperAdmin &&
+          {!isSuperAdmin && configuredSessionName &&
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Sessão configurada</p>
               <code className="mt-1 block break-all text-sm font-semibold text-gray-900">
@@ -475,7 +528,34 @@ export function WhatsAppSessionManager({
             </div>
           }
 
-          {snapshot.status === 'not_found' &&
+          {clinicaId && !hasUnsavedSessionChange && (snapshot.status === 'not_configured' || snapshot.status === 'not_found') &&
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5" data-testid="whatsapp-conectar-clinica">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-white text-emerald-700">
+                  <SmartphoneIcon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-emerald-950">Conecte o WhatsApp da clínica</p>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-emerald-900">
+                    <li>Toque no botão abaixo: o sistema prepara a conexão desta clínica.</li>
+                    <li>Aparece um QR Code. No celular da clínica, abra o WhatsApp › Configurações › Aparelhos conectados › Conectar aparelho.</li>
+                    <li>Aponte a câmera para o QR Code. Pronto!</li>
+                  </ol>
+                  <Button
+                  type="button"
+                  onClick={() => void criarSessaoDaClinica()}
+                  disabled={criando}
+                  className="mt-4 bg-emerald-700 text-white hover:bg-emerald-800">
+                  
+                    {criando ? <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> : <PowerIcon className="mr-2 h-4 w-4" />}
+                    {criando ? 'Preparando...' : 'Conectar o WhatsApp desta clínica'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          }
+
+          {snapshot.status === 'not_found' && isSuperAdmin &&
           <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
               <XCircleIcon className="mt-0.5 h-5 w-5 flex-none text-red-600" />
               <div>
@@ -488,7 +568,7 @@ export function WhatsAppSessionManager({
             </div>
           }
 
-          {snapshot.status === 'not_configured' &&
+          {snapshot.status === 'not_configured' && (isSuperAdmin || !clinicaId) &&
           <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
               <ClipboardCheckIcon className="mt-0.5 h-5 w-5 flex-none text-gray-500" />
               <p className="text-sm text-gray-700">{snapshot.message}</p>
@@ -549,6 +629,7 @@ export function WhatsAppSessionManager({
             </p>
           }
 
+          {(isSuperAdmin || !clinicaId || snapshot.status !== 'not_configured' && snapshot.status !== 'not_found') &&
           <div className="flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:flex-wrap">
             <Button type="button" variant="secondary" onClick={() => void checkStatus()} disabled={snapshot.status === 'checking'}>
               <RefreshCwIcon className={`mr-2 h-4 w-4 ${snapshot.status === 'checking' ? 'animate-spin' : ''}`} />
@@ -581,6 +662,7 @@ export function WhatsAppSessionManager({
               Trocar telefone
             </Button>
           </div>
+          }
           {snapshot.sessionExists && !hasUnsavedSessionChange &&
           <p className="text-xs leading-relaxed text-gray-500">
               <strong className="text-gray-700">Trocar telefone</strong> encerra o vínculo atual desta sessão e apresenta um novo QR Code. Use apenas quando for conectar outro aparelho.

@@ -1800,6 +1800,134 @@ router.post('/session/start', async (req, res) => {
   }
 });
 
+// ==================== CRIAR A SESSÃO DA PRÓPRIA CLÍNICA ====================
+// O admin da clínica não tinha como ligar o WhatsApp: servidor e sessão só
+// apareciam para o super admin e o sistema nunca criava sessão no WAHA. Aqui o
+// admin (ou o super admin) cria a sessão DA CLÍNICA dele, com segurança:
+//   • o servidor e a chave são os da plataforma (.env.local), nunca do navegador;
+//   • o nome é sempre automático (easyclin_<id da clínica>), então não dá para
+//     tocar na sessão de outra clínica;
+//   • se a sessão configurada já existe no WAHA, nada é criado — só reaproveita.
+// Depois liga o webhook de respostas e devolve o nome para a tela mostrar o QR.
+function nomeSessaoDaClinica(clinicaId) {
+  return `easyclin_${String(clinicaId).toLowerCase().replace(/[^a-z0-9]/g, '')}`.slice(0, 60);
+}
+
+function servidorWahaDaPlataforma() {
+  const bruto = String(process.env.WAHA_SERVER_URL || process.env.VITE_WAHA_SERVER_URL || '').trim();
+  if (!bruto) return '';
+  return cleanUrl(/^https?:\/\//i.test(bruto) ? bruto : `https://${bruto}`);
+}
+
+function webhookPadrao(req) {
+  const doEnv = String(process.env.WAHA_WEBHOOK_URL || '').trim();
+  if (doEnv) return normalizarWebhookUrl(doEnv);
+  const host = req.get('x-forwarded-host') || req.get('host');
+  const local = !host || host.includes('localhost') || host.includes('127.0.0.1');
+  const protocolo = local ? req.get('x-forwarded-proto') || req.protocol || 'http' : 'https';
+  return `${protocolo}://${host}/api/webhook/whatsapp`;
+}
+
+const dbGetAsync = (db, sql, params) => new Promise((resolve, reject) =>
+db.get(sql, params, (err, row) => err ? reject(err) : resolve(row || null)));
+const dbRunAsync = (db, sql, params) => new Promise((resolve, reject) =>
+db.run(sql, params, function (err) {err ? reject(err) : resolve(this);}));
+
+router.post('/session/criar-da-clinica', async (req, res) => {
+  const usuario = req.usuario;
+  const clinicaId = String(req.body?.clinicaId || '').trim();
+  if (!clinicaId) return res.status(400).json({ error: 'Selecione a clínica.' });
+  if (!usuario || !['admin', 'super_admin'].includes(usuario.tipo)) {
+    return res.status(403).json({ error: 'Somente o administrador da clínica pode conectar o WhatsApp.' });
+  }
+  // (o middleware de autenticação já conferiu que a clínica é da operadora dele)
+
+  const serverUrl = servidorWahaDaPlataforma();
+  if (!serverUrl) {
+    return res.status(503).json({
+      error: 'O servidor de WhatsApp da plataforma ainda não foi configurado. Avise o suporte do EasyClin.',
+      codigo: 'WAHA_NAO_CONFIGURADO'
+    });
+  }
+  const apiKey = getWahaApiKey();
+  const headers = getWahaHeaders(apiKey);
+
+  try {
+    const db = getClinicaDB(clinicaId);
+    const config = await dbGetAsync(db, 'SELECT * FROM whatsapp_config WHERE clinicaId = ?', [clinicaId]);
+
+    // 1. Já tem sessão configurada e ela existe no WAHA: não cria nada.
+    const configurada = String(config?.sessionName || '').trim();
+    const servidorConfigurado = cleanUrl(String(config?.serverUrl || '').trim()) || serverUrl;
+    if (configurada) {
+      const existe = await confirmarSessaoExistente(servidorConfigurado, encodeURIComponent(configurada), configurada, headers);
+      if (existe.unauthorized) return res.status(502).json({ error: 'O servidor de WhatsApp recusou a chave da plataforma. Avise o suporte.' });
+      if (existe.exists) {
+        return res.json({ success: true, criada: false, serverUrl: servidorConfigurado, sessionName: configurada, canalAtivo: Boolean(config?.ativo) });
+      }
+    }
+
+    // 2. Cria (ou reaproveita) a sessão com o nome automático desta clínica.
+    const nome = nomeSessaoDaClinica(clinicaId);
+    const jaExiste = await confirmarSessaoExistente(serverUrl, encodeURIComponent(nome), nome, headers);
+    if (jaExiste.unauthorized) return res.status(502).json({ error: 'O servidor de WhatsApp recusou a chave da plataforma. Avise o suporte.' });
+    let criada = false;
+    if (!jaExiste.exists) {
+      const r = await fetch(`${serverUrl}/api/sessions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: nome, start: true })
+      });
+      if (!r.ok && r.status !== 409 && r.status !== 422) {
+        const detalhe = (await r.text().catch(() => '')).slice(0, 300);
+        console.error(`📱 ❌ [criar-da-clinica] WAHA ${r.status} ao criar "${nome}": ${detalhe}`);
+        const limite = /plus|core|only.*default|one session/i.test(detalhe);
+        return res.status(502).json({
+          error: limite ?
+          'O servidor de WhatsApp da plataforma não aceita mais sessões (a versão gratuita do WAHA só permite uma). Avise o suporte.' :
+          'Não foi possível criar a conexão do WhatsApp agora. Tente de novo em instantes.'
+        });
+      }
+      criada = true;
+      console.log(`📱 ✅ [criar-da-clinica] Sessão "${nome}" criada para a clínica ${clinicaId} por ${usuario.email}`);
+    } else {
+      // Existe mas pode estar parada: manda iniciar (não cria nada)
+      await fetch(`${serverUrl}/api/sessions/${encodeURIComponent(nome)}/start`, { method: 'POST', headers, body: '{}' }).catch(() => {});
+    }
+    statusCache.delete(`${serverUrl}_${nome}`);
+
+    // 3. Webhook de respostas (confirmar/cancelar consulta pelo WhatsApp)
+    const webhookUrl = config?.webhookUrl && String(config.webhookUrl).trim() ? normalizarWebhookUrl(config.webhookUrl) : webhookPadrao(req);
+    const webhook = await configurarWebhookNoWaha(serverUrl, nome, webhookUrl, apiKey).catch((e) => ({ success: false, error: e.message }));
+
+    // 4. Grava na configuração da clínica (o canal "Ativo" continua como estava;
+    //    na primeira vez nasce ativo, como a tela já mostrava)
+    const agora = new Date().toISOString();
+    if (config) {
+      await dbRunAsync(db, 'UPDATE whatsapp_config SET provider = ?, serverUrl = ?, sessionName = ?, webhookUrl = ?, atualizadoEm = ? WHERE clinicaId = ?',
+      ['session', serverUrl, nome, webhookUrl, agora, clinicaId]);
+    } else {
+      await dbRunAsync(db,
+      'INSERT INTO whatsapp_config (id, clinicaId, provider, serverUrl, sessionName, ativo, horasAntecedencia, enviarConfirmacao, webhookUrl, webhookAtivo, atualizadoEm) VALUES (?, ?, ?, ?, ?, 1, 24, 1, ?, 1, ?)',
+      [`whatsapp_${Date.now()}`, clinicaId, 'session', serverUrl, nome, webhookUrl, agora]);
+    }
+    if (global.limparCacheSessionClinica) global.limparCacheSessionClinica();
+
+    res.json({
+      success: true,
+      criada,
+      serverUrl,
+      sessionName: nome,
+      webhook: webhook.success ? 'ok' : 'falhou',
+      // Primeira configuração nasce ativa (é o que a tela já mostrava)
+      canalAtivo: config ? Boolean(config.ativo) : true
+    });
+  } catch (err) {
+    console.error('📱 ❌ [criar-da-clinica]', err);
+    res.status(500).json({ error: 'Não foi possível preparar a conexão do WhatsApp agora. Tente de novo.' });
+  }
+});
+
 // ==================== PARAR SESSÃO (PROXY) ====================
 router.post('/session/stop', async (req, res) => {
   const { serverUrl: rawServerUrl, sessionName, apiKey, clinicaId } = req.body;

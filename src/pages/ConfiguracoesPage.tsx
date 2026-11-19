@@ -924,7 +924,16 @@ _Digite o número da opção desejada._`);
                 onServerUrlChange={handleServerUrlChange}
                 onSessionNameChange={handleSessionNameChange}
                 onSessionExistenceChange={setConfiguredSessionExists}
-                isSuperAdmin={isSuperAdmin} />
+                isSuperAdmin={isSuperAdmin}
+                clinicaId={isAdmin ? clinicaId : undefined}
+                onSessaoCriada={async ({ serverUrl, sessionName }) => {
+                  // O servidor já gravou; deixa os campos locais iguais para
+                  // que um "Salvar Configurações" depois não apague a sessão.
+                  setLocalServerUrl(serverUrl);
+                  setLocalSessionName(sessionName);
+                  await recarregar();
+                  window.dispatchEvent(new Event('whatsapp-config-updated'));
+                }} />
               
                   </div>
             }

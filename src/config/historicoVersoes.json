@@ -2,6 +2,15 @@
   "_leia": "FONTE ÚNICA da versão do sistema. A cada entrega, acrescente uma versão NO TOPO, com o que mudou escrito para o usuário da clínica. O número exibido (config/version.ts), o aviso de versão nova e a janela 'O que mudou' saem daqui.",
   "versoes": [
     {
+      "versao": "2.5.1",
+      "data": "2026-11-19",
+      "itens": [
+        "O administrador da clínica agora conecta o WhatsApp sozinho: em Configurações › Conexão WhatsApp, o botão \"Conectar o WhatsApp desta clínica\" prepara a conexão e já mostra o QR Code para ler com o celular.",
+        "As respostas dos pacientes (confirmar ou cancelar consulta) já ficam ligadas automaticamente nessa conexão.",
+        "Outros profissionais veem um aviso pedindo ao administrador para conectar."
+      ]
+    },
+    {
       "versao": "2.5.0",
       "data": "2026-11-19",
       "itens": [
