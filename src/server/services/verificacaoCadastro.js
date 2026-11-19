@@ -237,7 +237,7 @@ async function enviarCodigo({ canal, destino, id, ip, preferido }) {
   }
   if (canal === 'email') {
     const existe = await dbGlobal.prepare('SELECT id FROM usuarios WHERE LOWER(email) = ?').get(normal);
-    if (existe) throw erro(409, 'Já existe uma conta com este e-mail. Use "Esqueci minha senha" ou entre com ele.', 'EMAIL_DUPLICADO');
+    if (existe) throw erro(409, 'Já existe uma conta com este e-mail. Entre com ele na tela de login ou use outro e-mail.', 'EMAIL_DUPLICADO');
   }
 
   const agora = Date.now();
