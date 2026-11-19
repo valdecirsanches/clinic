@@ -84,8 +84,14 @@ export function AvisoNovaVersao() {
     // Internet voltou (ex.: notebook que estava desligado): confere na hora.
     const aoReconectar = () => conferir(true);
     window.addEventListener('online', aoReconectar);
+    // Servidor reiniciou (publicação) ou um pedaço do app sumiu do servidor
+    // (vite:preloadError, ver index.tsx): confere a versão na hora.
+    window.addEventListener('servidor-voltou', aoReconectar);
+    window.addEventListener('easyclin-verificar-versao', aoReconectar);
     return () => {
       window.removeEventListener('online', aoReconectar);
+      window.removeEventListener('servidor-voltou', aoReconectar);
+      window.removeEventListener('easyclin-verificar-versao', aoReconectar);
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', aoVoltar);
       window.removeEventListener('focus', aoVoltar);

@@ -2,6 +2,16 @@
   "_leia": "FONTE ÚNICA da versão do sistema. A cada entrega, acrescente uma versão NO TOPO, com o que mudou escrito para o usuário da clínica. O número exibido (config/version.ts), o aviso de versão nova e a janela 'O que mudou' saem daqui.",
   "versoes": [
     {
+      "versao": "2.4.0",
+      "data": "2026-11-19",
+      "itens": [
+        "Publicar uma versão nova não derruba mais quem está usando: enquanto o servidor reinicia, aparece \"Atualizando o sistema…\" e o que a pessoa estava fazendo é concluído sozinho quando ele volta (sem erro e sem perder o que foi salvo).",
+        "As telas recarregam os dados automaticamente quando o servidor volta, e o aviso de versão nova aparece logo em seguida.",
+        "Se a página for aberta bem no meio da atualização, ela entra sozinha assim que o sistema estiver pronto.",
+        "O servidor espera o banco de dados ficar disponível ao ligar, em vez de parar com erro."
+      ]
+    },
+    {
       "versao": "2.3.1",
       "data": "2026-11-16",
       "itens": [

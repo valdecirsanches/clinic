@@ -37,6 +37,7 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { AvisoNovaVersao } from './components/AvisoNovaVersao';
 import { NovidadesDaVersao } from './components/versao/NovidadesDaVersao';
+import { AvisoServidorReiniciando } from './components/AvisoServidorReiniciando';
 import './index.css';
 import { clearWhatsAppCache } from './utils/clearWhatsAppCache';
 // Expõe função de limpeza globalmente
@@ -65,6 +66,15 @@ if (typeof document !== 'undefined') {
 
     // ignore — não bloquear o boot se algo falhar aqui
   }}
+// ⭐ Depois de publicar uma versão (npm run build), os arquivos antigos do app
+// somem do servidor. Quem estava com a tela aberta, ao abrir algo carregado sob
+// demanda (ex.: gerar PDF), recebia "Failed to fetch dynamically imported
+// module". Em vez do erro, oferece atualizar para a versão nova.
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    window.dispatchEvent(new CustomEvent('easyclin-verificar-versao'));
+  });
+}
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 // ⭐ FIX requisições duplicadas: o React.StrictMode monta cada componente DUAS
 // vezes em desenvolvimento (mount → unmount → mount), fazendo todo useEffect com
@@ -76,6 +86,7 @@ root.render(
   <>
     <App />
     <AvisoNovaVersao />
+    <AvisoServidorReiniciando />
     <NovidadesDaVersao />
   </>
 );

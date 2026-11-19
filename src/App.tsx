@@ -2494,6 +2494,24 @@ export function App() {
       cancelled = true;
     };
   }, []);
+  // ⭐ Servidor fora ao abrir a página (ex.: reiniciando na publicação de uma
+  // versão): tenta de novo sozinho a cada 4 s — a tela de erro some assim que
+  // ele volta, sem a pessoa precisar clicar em "Tentar novamente".
+  useEffect(() => {
+    if (dbStatus !== 'error') return;
+    let ativo = true;
+    const timer = window.setInterval(async () => {
+      const result = await checkApiHealth();
+      if (ativo && result.ok) {
+        setDbStatus('ok');
+        setDbError('');
+      }
+    }, 4000);
+    return () => {
+      ativo = false;
+      window.clearInterval(timer);
+    };
+  }, [dbStatus]);
   const handleRetry = async () => {
     setIsRetrying(true);
     const result = await checkApiHealth();

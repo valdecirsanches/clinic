@@ -11,6 +11,7 @@ import { useEffect, useRef } from 'react';
  *   - a janela/aba volta a receber foco (o caso mais comum: alternar de máquina)
  *   - a aba volta a ficar visível
  *   - a conexão é restabelecida
+ *   - o servidor volta depois de reiniciar (evento `servidor-voltou`)
  *   - passa o intervalo definido, enquanto a aba estiver visível
  *
  * Nunca dispara com a aba oculta, para não gerar tráfego inútil.
@@ -49,6 +50,8 @@ opcoes?: {
 
     window.addEventListener('focus', executar);
     window.addEventListener('online', executar);
+    // Servidor voltou depois de reiniciar (publicação de versão)
+    window.addEventListener('servidor-voltou', executar);
     // Logo após o login: antes dele o servidor recusa as leituras (401)
     window.addEventListener('sessao-iniciada', executar);
     document.addEventListener('visibilitychange', aoFicarVisivel);
@@ -59,6 +62,7 @@ opcoes?: {
     return () => {
       window.removeEventListener('focus', executar);
       window.removeEventListener('online', executar);
+      window.removeEventListener('servidor-voltou', executar);
       window.removeEventListener('sessao-iniciada', executar);
       document.removeEventListener('visibilitychange', aoFicarVisivel);
       if (timer) window.clearInterval(timer);

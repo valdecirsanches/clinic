@@ -27,6 +27,12 @@ export function DatabaseUnavailable({
     icon = <WifiOffIcon className="w-16 h-16 text-red-400" />;
     title = 'Erro de Conexão';
     description = 'Não foi possível estabelecer conexão com o servidor. Verifique sua internet ou se o servidor está online.';
+  } else if (error.startsWith('HTTP 503') || error.startsWith('HTTP 502') || error.startsWith('HTTP 52')) {
+    // 503: a API está iniciando (publicação de versão); 502/52x: o proxy ainda
+    // não a alcança. A página tenta de novo sozinha a cada poucos segundos.
+    icon = <RefreshCwIcon className="w-16 h-16 text-teal-400 animate-spin" />;
+    title = 'Atualizando o sistema';
+    description = 'O EasyClin está sendo atualizado e volta em alguns segundos. Esta página vai abrir sozinha assim que ele estiver pronto.';
   } else if (isHttpError) {
     icon = <AlertTriangleIcon className="w-16 h-16 text-amber-400" />;
     title = `Erro do Servidor (${error})`;

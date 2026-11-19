@@ -119,6 +119,29 @@ app.options('*', cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// ⭐⭐⭐ REINÍCIO SEM DERRUBAR QUEM ESTÁ LOGADO ⭐⭐⭐
+// Antes, a porta só abria depois de preparar o banco global, os bancos de
+// TODAS as clínicas e as migrações. Nesse intervalo (e enquanto o PM2/systemd
+// trocava o processo) o navegador recebia "conexão recusada"/502 do
+// Cloudflare: telas vazias e erros de API para todos os usuários logados.
+// Agora a porta abre na hora e, até o banco estar pronto (ou enquanto o
+// processo encerra), /api responde 503 SERVIDOR_REINICIANDO com Retry-After.
+// O app reconhece essa resposta, espera e repete a chamada sozinho
+// (utils/autenticacaoApi.ts) — o usuário só vê "Atualizando o sistema…".
+let estadoServidor = 'iniciando'; // 'iniciando' | 'pronto' | 'encerrando'
+app.use((req, res, next) => {
+  if (estadoServidor === 'pronto') return next();
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) return next();
+  res.setHeader('Retry-After', '3');
+  res.setHeader('Cache-Control', 'no-store');
+  if (estadoServidor === 'encerrando') res.setHeader('Connection', 'close');
+  res.status(503).json({
+    error: 'O sistema está sendo atualizado. Tente de novo em alguns segundos.',
+    codigo: 'SERVIDOR_REINICIANDO',
+    estado: estadoServidor
+  });
+});
+
 // ⭐⭐⭐ NUNCA CACHEAR RESPOSTAS DE DADOS ⭐⭐⭐
 // Sem estes cabeçalhos, navegador, proxy e CDN (Cloudflare) podiam guardar as
 // respostas de /api e servir dados VELHOS — dois terminais viam versões
@@ -1068,24 +1091,69 @@ app.get('/api/health', (req, res) => {
 // dbGlobal já importado no topo do arquivo
 const { initAllClinicas } = require(path.join(SERVER_DIR, 'databaseClinica'));
 
+// Espera o MySQL aceitar conexões. Quando a máquina reinicia (ou o MySQL é
+// reiniciado junto com a API), a API costumava subir primeiro, falhar com
+// ECONNREFUSED e encerrar — e ficava fora até alguém reiniciá-la à mão.
+async function aguardarBanco() {
+  const mysql = require('mysql2/promise');
+  const LIMITE_MS = Number(process.env.MYSQL_ESPERA_MS) || 5 * 60 * 1000;
+  const inicio = Date.now();
+  let tentativa = 0;
+  for (;;) {
+    tentativa++;
+    try {
+      const { MYSQL_CONFIG } = require(path.join(SERVER_DIR, 'config/mysql'));
+      const conexao = await mysql.createConnection({
+        host: MYSQL_CONFIG.host,
+        port: MYSQL_CONFIG.port,
+        user: MYSQL_CONFIG.user,
+        password: MYSQL_CONFIG.password,
+        connectTimeout: 5000
+      });
+      await conexao.end();
+      if (tentativa > 1) console.log(`✅ MySQL disponível (após ${tentativa} tentativas)`);
+      return;
+    } catch (err) {
+      // Usuário/senha errados não se resolvem esperando
+      if (err && (err.code === 'ER_ACCESS_DENIED_ERROR' || err.code === 'ER_DBACCESS_DENIED_ERROR')) throw err;
+      if (Date.now() - inicio > LIMITE_MS) throw err;
+      if (tentativa === 1 || tentativa % 10 === 0) {
+        console.warn(`⏳ MySQL ainda não aceita conexões (${err.code || err.message}). Tentando de novo...`);
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+}
+
+// Encerramento gracioso (PM2/systemd mandam SIGINT/SIGTERM): para de aceitar
+// chamadas novas (503 SERVIDOR_REINICIANDO, que o app repete sozinho) e deixa
+// terminar as que já estavam em andamento — um "Salvar" não é cortado no meio.
+function instalarEncerramentoGracioso(server) {
+  let encerrando = false;
+  const encerrar = (sinal) => {
+    if (encerrando) return;
+    encerrando = true;
+    estadoServidor = 'encerrando';
+    console.log(`\n👋 ${sinal} recebido: encerrando sem cortar as chamadas em andamento...`);
+    const sair = () => {
+      try {dbGlobal.getPool() && dbGlobal.getPool().end().catch(() => {});} catch (e) {/* ignora */}
+      process.exit(0);
+    };
+    server.close(sair);
+    if (typeof server.closeIdleConnections === 'function') server.closeIdleConnections();
+    // SSE e WebSocket ficam abertos para sempre: depois de um tempo, fecha tudo
+    setTimeout(() => {
+      if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+      setTimeout(sair, 500).unref();
+    }, Number(process.env.ENCERRAMENTO_ESPERA_MS) || 4000).unref();
+  };
+  for (const sinal of ['SIGINT', 'SIGTERM']) process.on(sinal, () => encerrar(sinal));
+}
+
 async function startServer() {
   try {
-    // 1. Inicializa banco global MySQL
-    console.log('\n🔄 Inicializando banco de dados MySQL...\n');
-    await dbGlobal.init();
-
-    // 2. Pré-inicializa bancos de clínicas
-    await initAllClinicas();
-
-    // 3. ⚠️ A limpeza de aberturas "sem marcação" foi REMOVIDA: ela apagava do
-    // banco os dias liberados pelo usuário que ainda não tinham paciente
-    // marcado, fazendo o cadeado voltar. Liberar o dia é definitivo.
-
-    // 4. Roda migrações
-    const { runAllMigrations } = require(path.join(SERVER_DIR, 'utils/migrations'));
-    try {await runAllMigrations();} catch (e) {console.warn('⚠️ Migrações:', e.message);}
-
-    // 5. Inicia o servidor HTTP
+    // 1. Abre a porta JÁ — até o banco ficar pronto, /api responde 503
+    //    SERVIDOR_REINICIANDO (o app espera e repete) em vez de "conexão recusada".
     console.log(`\n🔄 Tentando iniciar servidor na porta ${PORT}...`);
 
     // ⭐ Cria HTTP server para compartilhar com WebSocket Hub
@@ -1104,7 +1172,48 @@ async function startServer() {
       console.error('   ⚠️ PrintServer Hub não inicializado:', err.message);
     }
 
-    const server = httpServer.listen(PORT, '0.0.0.0', () => {
+    await new Promise((resolve) => {
+      const server = httpServer.listen(PORT, '0.0.0.0', resolve);
+      server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          console.error(`\n❌❌❌ ERRO: Porta ${PORT} já está em uso!`);
+          console.error(`💡 Execute: kill $(lsof -t -i:${PORT})`);
+        } else {
+          console.error(`\n❌❌❌ ERRO ao iniciar servidor:`, err.message);
+        }
+        process.exit(1);
+      });
+      instalarEncerramentoGracioso(server);
+    });
+    console.log(`   ✅ Porta ${PORT} aberta (respondendo "reiniciando" até o banco ficar pronto)`);
+
+    // 2. Espera o MySQL e inicializa o banco global
+    console.log('\n🔄 Inicializando banco de dados MySQL...\n');
+    await aguardarBanco();
+    await dbGlobal.init();
+
+    // 3. Pré-inicializa bancos de clínicas
+    await initAllClinicas();
+
+    // ⚠️ A limpeza de aberturas "sem marcação" foi REMOVIDA: ela apagava do
+    // banco os dias liberados pelo usuário que ainda não tinham paciente
+    // marcado, fazendo o cadeado voltar. Liberar o dia é definitivo.
+
+    // 4. Roda migrações
+    const { runAllMigrations } = require(path.join(SERVER_DIR, 'utils/migrations'));
+    try {await runAllMigrations();} catch (e) {console.warn('⚠️ Migrações:', e.message);}
+
+    // 5. Pronto: libera as chamadas
+    if (estadoServidor === 'iniciando') estadoServidor = 'pronto';
+    aoFicarPronto();
+  } catch (err) {
+    console.error('\n❌❌❌ ERRO FATAL ao inicializar:', err.message);
+    console.error(err.stack);
+    process.exit(1);
+  }
+}
+
+function aoFicarPronto() {
       console.log('\n');
       console.log('╔════════════════════════════════════════════════════════════╗');
       console.log('║                                                            ║');
@@ -1179,30 +1288,6 @@ async function startServer() {
         console.error('   ⚠️ Listener de ponto biométrico não iniciado:', err.message);
       }
 
-    });
-
-    server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        console.error(`\n❌❌❌ ERRO: Porta ${PORT} já está em uso!`);
-        console.error(`💡 Execute: kill $(lsof -t -i:${PORT})`);
-      } else {
-        console.error(`\n❌❌❌ ERRO ao iniciar servidor:`, err.message);
-      }
-      process.exit(1);
-    });
-
-    setTimeout(() => {
-      if (!server.listening) {
-        console.error('\n⏰ TIMEOUT: Servidor não iniciou em 10 segundos!');
-        process.exit(1);
-      }
-    }, 10000);
-
-  } catch (err) {
-    console.error('\n❌❌❌ ERRO FATAL ao inicializar:', err.message);
-    console.error(err.stack);
-    process.exit(1);
-  }
 }
 
 // ⭐ Remove a inicialização síncrona antiga e substitui pela async
