@@ -696,4 +696,4 @@ module.exports = router;
 module.exports.enviarSms = enviarSms;
 module.exports.buscarConfigSms = buscarConfigSms;
 module.exports.smsDisponivel = smsDisponivel;
-module.exports.normalizarTelefone = normalizarTelefone;
+module.exports.normalizarTelefone = normalizarTelefone;module.exports.chamarSmsGo = chamarSmsGo;

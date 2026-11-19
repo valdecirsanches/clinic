@@ -256,6 +256,9 @@ async function migrateColumns() {
   }
 
   // ⭐ Campos do profissional: titulo, cabecalho e RQEs
+  // ⭐ Cadastro de conta nova: quando o e-mail e o celular foram confirmados por código
+  await migrarColuna('usuarios', 'emailConfirmadoEm', 'VARCHAR(30)');
+  await migrarColuna('usuarios', 'celularConfirmadoEm', 'VARCHAR(30)');
   await migrarColuna('usuarios', 'titulo', 'VARCHAR(100)');
   await migrarColuna('usuarios', 'cabecalhoRelatorio', 'TEXT');
   await migrarColuna('usuarios', 'rqes', 'TEXT');

@@ -227,7 +227,8 @@ const PUBLICAS = [
 [['GET'], /^\/(health|version)\/?$/],
 [['GET'], /^\/diagnostico\/health\/?$/],
 // Login, duas etapas e criação de conta
-[['POST'], /^\/auth\/(login|login\/verificar|login\/reenviar|cadastro|logout)\/?$/],
+[['POST'], /^\/auth\/(login|login\/verificar|login\/reenviar|cadastro|cadastro\/codigo|cadastro\/confirmar|logout)\/?$/],
+[['GET'], /^\/auth\/cadastro\/config\/?$/],
 [['GET'], /^\/auth\/cadastro\/cnpj\/[^/]+\/?$/],
 // Instaladores (PrintServer, leitor biométrico)
 [['GET'], /^\/downloads\/(arquivo\/[^/]+|listar)\/?$/],

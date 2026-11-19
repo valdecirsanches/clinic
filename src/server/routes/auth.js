@@ -9,6 +9,7 @@ const dbGlobal = require('../databaseGlobal');
 const senhas = require('../services/senhas');
 const doisFatores = require('../services/doisFatores');
 const autenticacao = require('../services/autenticacao');
+const verificacaoCadastro = require('../services/verificacaoCadastro');
 
 // ==================== LIMITE DE TENTATIVAS ====================
 // 10 senhas erradas por e-mail (ou 30 por IP) em 15 minutos bloqueiam novas
@@ -247,16 +248,80 @@ async function totalUsuarios(operadoraId) {
   return Number(r && r.total || 0);
 }
 
+// Dados públicos da Receita (BrasilAPI) para preencher o cadastro sozinho.
+// Nunca impede o cadastro: sem resposta em 6 s, a pessoa digita.
+async function dadosDaReceita(cnpj) {
+  try {
+    const controle = new AbortController();
+    const timer = setTimeout(() => controle.abort(), 6000);
+    const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${somenteDigitos(cnpj)}`, {
+      headers: { Accept: 'application/json' },
+      signal: controle.signal
+    });
+    clearTimeout(timer);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const tel = somenteDigitos(d.ddd_telefone_1);
+    return {
+      razaoSocial: d.razao_social || '',
+      nomeFantasia: d.nome_fantasia || '',
+      telefone: tel.length >= 10 ? `(${tel.slice(0, 2)}) ${tel.slice(2, tel.length - 4)}-${tel.slice(-4)}` : '',
+      email: String(d.email || '').toLowerCase(),
+      cidade: d.municipio || '',
+      uf: d.uf || '',
+      situacao: d.descricao_situacao_cadastral || '',
+      endereco: [d.logradouro, d.numero, d.complemento, d.bairro, d.municipio ? `${d.municipio}/${d.uf}` : d.uf, d.cep ? `CEP: ${d.cep}` : null].filter(Boolean).join(', ')
+    };
+  } catch {
+    return null;
+  }
+}
+
 // GET /api/auth/cadastro/cnpj/:cnpj
 router.get('/cadastro/cnpj/:cnpj', async (req, res) => {
   try {
     if (somenteDigitos(req.params.cnpj).length !== 14) return res.status(400).json({ error: 'CNPJ inválido' });
     const op = await operadoraPorCnpj(req.params.cnpj);
-    if (!op) return res.json({ existe: false });
+    if (!op) return res.json({ existe: false, receita: await dadosDaReceita(req.params.cnpj) });
     const temUsuarios = (await totalUsuarios(op.id)) > 0;
     res.json({ existe: true, temUsuarios, operadora: temUsuarios ? null : { id: op.id, nome: op.nome, razaoSocial: op.razaoSocial, cnpj: op.cnpj } });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/auth/cadastro/config — quais confirmações a tela deve pedir
+router.get('/cadastro/config', (req, res) => {
+  res.json(verificacaoCadastro.configuracao());
+});
+
+// POST /api/auth/cadastro/codigo { canal: 'email'|'celular', destino, id?, preferido? }
+// Envia (ou reenvia, com `id`) o código de confirmação.
+router.post('/cadastro/codigo', async (req, res) => {
+  const chaveIp = `cadastro-codigo:${ipDe(req)}`;
+  if (bloqueado(chaveIp, 20)) return res.status(429).json({ error: 'Muitos códigos pedidos a partir deste endereço. Tente de novo em alguns minutos.' });
+  try {
+    const { canal, destino, id, preferido } = req.body || {};
+    const r = await verificacaoCadastro.enviarCodigo({ canal, destino, id, preferido, ip: ipDe(req) });
+    registrarFalha(chaveIp); // conta envios (não é falha): limita abuso por IP
+    res.json(r);
+  } catch (err) {
+    if (!err.status) console.error('❌ [cadastro/codigo]', err);
+    res.status(err.status || 500).json({ error: err.status ? err.message : 'Não foi possível enviar o código agora.', codigo: err.codigo });
+  }
+});
+
+// POST /api/auth/cadastro/confirmar { id, codigo } → { comprovante }
+router.post('/cadastro/confirmar', async (req, res) => {
+  const chaveIp = `cadastro-confirmar:${ipDe(req)}`;
+  if (bloqueado(chaveIp, 30)) return res.status(429).json({ error: 'Muitas tentativas. Aguarde alguns minutos.' });
+  try {
+    const { id, codigo } = req.body || {};
+    res.json(await verificacaoCadastro.confirmarCodigo({ id, codigo }));
+  } catch (err) {
+    if (err.status === 401) registrarFalha(chaveIp);
+    if (!err.status) console.error('❌ [cadastro/confirmar]', err);
+    res.status(err.status || 500).json({ error: err.status ? err.message : 'Não foi possível conferir o código agora.' });
   }
 });
 
@@ -275,10 +340,19 @@ router.post('/cadastro', async (req, res) => {
     const email = String(usuario?.email || '').trim();
     const senha = String(usuario?.senha || '');
     if (!nome || !email || !senha) return res.status(400).json({ error: 'Informe nome, e-mail e senha.' });
-    if (senha.length < 6) return res.status(400).json({ error: 'A senha precisa ter pelo menos 6 caracteres.' });
+    if (senha.length < 8) return res.status(400).json({ error: 'A senha precisa ter pelo menos 8 caracteres.' });
     if (somenteDigitos(cnpj).length !== 14) return res.status(400).json({ error: 'CNPJ inválido' });
-    if (await dbGlobal.prepare('SELECT id FROM usuarios WHERE email = ?').get(email)) {
+    if (await dbGlobal.prepare('SELECT id FROM usuarios WHERE LOWER(email) = LOWER(?)').get(email)) {
       return res.status(409).json({ error: `O e-mail "${email}" já está cadastrado.`, code: 'EMAIL_DUPLICADO' });
+    }
+
+    // E-mail e celular confirmados por código (services/verificacaoCadastro)
+    let confEmail, confCelular;
+    try {
+      confEmail = await verificacaoCadastro.exigirComprovante('email', email, req.body?.comprovanteEmail);
+      confCelular = await verificacaoCadastro.exigirComprovante('celular', usuario?.celular || usuario?.telefone, req.body?.comprovanteCelular);
+    } catch (e) {
+      return res.status(e.status || 400).json({ error: e.message, code: e.codigo });
     }
 
     let op = await operadoraPorCnpj(cnpj);
@@ -300,10 +374,14 @@ router.post('/cadastro', async (req, res) => {
     }
 
     const usuarioId = `u${Date.now()}`;
+    const celular = confCelular.destino ? `(${confCelular.destino.slice(2, 4)}) ${confCelular.destino.slice(4, -4)}-${confCelular.destino.slice(-4)}` : null;
+    const agoraIso = new Date().toISOString();
     await dbGlobal.prepare(
-      `INSERT INTO usuarios (id, nome, email, senha, tipo, operadoraId, clinicaId, ativo, criadoEm)
-       VALUES (?, ?, ?, ?, 'admin', ?, NULL, 1, ?)`
-    ).run(usuarioId, nome, email, await senhas.prepararParaGravar(senha.trim()), op.id, new Date().toISOString().split('T')[0]);
+      `INSERT INTO usuarios (id, nome, email, senha, tipo, operadoraId, clinicaId, ativo, criadoEm, telefone, emailConfirmadoEm, celularConfirmadoEm)
+       VALUES (?, ?, ?, ?, 'admin', ?, NULL, 1, ?, ?, ?, ?)`
+    ).run(usuarioId, nome, confEmail.destino || email, await senhas.prepararParaGravar(senha.trim()), op.id, agoraIso.split('T')[0],
+    celular, confEmail.confirmado ? agoraIso : null, confCelular.confirmado ? agoraIso : null);
+    await verificacaoCadastro.consumir([confEmail.pedidoId, confCelular.pedidoId]);
     registrarFalha(chaveIp);
     autenticacao.esquecerClinicas();
     console.log(`✅ [cadastro] Conta criada: ${email} (admin) na operadora ${op.id}`);

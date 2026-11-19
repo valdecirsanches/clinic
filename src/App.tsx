@@ -395,7 +395,7 @@ function MainApp() {
       '   - SOLUÇÃO: Edite o usuário no banco e adicione um operadoraId válido'
     );
   }
-  const { clinicas, addClinica, updateClinica, deleteClinica, getClinicaById } =
+  const { clinicas, loading: clinicasLoading, addClinica, updateClinica, deleteClinica, getClinicaById } =
   useClinicas(operadoraId || undefined);
   // Flag para mostrar aviso de configuração incompleta
   const usuarioSemOperadora =
@@ -551,6 +551,24 @@ function MainApp() {
       setCurrentPage('clinicas');
       return;
     }
+    // Conta recém-criada (CadastroUsuarioModal): vai direto cadastrar a 1ª clínica
+    let contaNova = false;
+    try {
+      contaNova = sessionStorage.getItem('easyclin-conta-nova') === '1';
+    } catch {/* sem storage */}
+    if (
+    contaNova &&
+    !clinicasLoading &&
+    sessao.usuario.tipo === 'admin' &&
+    clinicas.filter((c) => c.operadoraId === sessao.usuario.operadoraId).length === 0 &&
+    currentPage !== 'clinicas')
+    {
+      try {
+        sessionStorage.removeItem('easyclin-conta-nova');
+      } catch {/* sem storage */}
+      setCurrentPage('clinicas');
+      return;
+    }
     if (
     sessao.usuario.tipo !== 'super_admin' &&
     sessao.usuario.operadoraId &&
@@ -578,7 +596,7 @@ function MainApp() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessao, clinicas, currentPage, precisaSelecionarClinica, operadoraId]);
+  }, [sessao, clinicas, clinicasLoading, currentPage, precisaSelecionarClinica, operadoraId]);
   const clinicaId = sessao?.clinicaAtual?.id;
   // ⭐ Usuários filtrados pela operadora atual — NUNCA expõe usuários de outras operadoras
   // ⭐ FIX: Inclui super_admins que podem ter operadoraId NULL

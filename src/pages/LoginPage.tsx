@@ -142,8 +142,7 @@ export function LoginPage({
       <CadastroUsuarioModal
         isOpen={showCadastro}
         onClose={() => setShowCadastro(false)}
-        onCadastrar={onCadastrarUsuario}
-        onBuscarOperadora={onBuscarOperadora} />
+        onEntrar={onLogin} />
       
 
       <TutorialOnboarding isOpen={showTutorial} onClose={handleCloseTutorial} />
