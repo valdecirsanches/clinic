@@ -4493,6 +4493,10 @@ export function PacienteForm({
                     label: 'Filho(a)'
                   },
                   {
+                    value: 'enteado',
+                    label: 'Enteado(a)'
+                  },
+                  {
                     value: 'conjuge',
                     label: 'Cônjuge'
                   },
@@ -4889,6 +4893,10 @@ export function PacienteForm({
             {
               value: 'filho',
               label: 'Filho(a)'
+            },
+            {
+              value: 'enteado',
+              label: 'Enteado(a)'
             },
             {
               value: 'conjuge',

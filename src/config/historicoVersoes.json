@@ -2,6 +2,13 @@
   "_leia": "FONTE ÚNICA da versão do sistema. A cada entrega, acrescente uma versão NO TOPO, com o que mudou escrito para o usuário da clínica. O número exibido (config/version.ts), o aviso de versão nova e a janela 'O que mudou' saem daqui.",
   "versoes": [
     {
+      "versao": "2.5.2",
+      "data": "2026-11-23",
+      "itens": [
+        "No cadastro do paciente e dos dependentes, o parentesco agora tem a opção \"Enteado(a)\"."
+      ]
+    },
+    {
       "versao": "2.5.1",
       "data": "2026-11-19",
       "itens": [

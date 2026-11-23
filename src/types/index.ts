@@ -541,7 +541,7 @@ export interface Dependente {
   genero: Genero;
   cpf?: string;
   rg?: string;
-  parentesco: 'conjuge' | 'filho' | 'pai' | 'mae' | 'irmao' | 'outro';
+  parentesco: 'conjuge' | 'filho' | 'enteado' | 'pai' | 'mae' | 'irmao' | 'outro';
   parentescoOutro?: string;
 
   // Contact

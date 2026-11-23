@@ -107,6 +107,9 @@ export function DependenteForm({
           value: 'filho',
           label: 'Filho(a)'
         }, {
+          value: 'enteado',
+          label: 'Enteado(a)'
+        }, {
           value: 'pai',
           label: 'Pai'
         }, {
