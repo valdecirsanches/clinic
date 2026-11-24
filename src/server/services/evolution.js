@@ -737,7 +737,40 @@ function eventoComoWaha(corpo) {
   return { event: 'message', session: sessao, payload, evolution: true };
 }
 
+// ------------------------------- códigos da plataforma (duas etapas, cadastro)
+/**
+ * Servidor que envia os códigos da plataforma pelo WhatsApp, escolhido no .env.local:
+ *   WHATSAPP_2FA_SERVIDOR=waha|evolution          (padrão: waha)
+ *   EVOLUTION_2FA_INSTANCIA=nome                   (padrão: WAHA_2FA_SESSION ou edssolution)
+ * O cadastro segue a mesma escolha, a menos que tenha a sua:
+ *   CADASTRO_WHATSAPP_SERVIDOR / CADASTRO_EVOLUTION_INSTANCIA
+ * Na Evolution o envio vai direto para a instância (não depende da sessão de
+ * nenhuma clínica: a mesma sessão pode ser de uma clínica no WAHA).
+ */
+function servidorDosCodigos(uso = '2fa') {
+  const doCadastro = uso === 'cadastro' ? limpa(process.env.CADASTRO_WHATSAPP_SERVIDOR) : '';
+  const servidorEscolhido = normalizaServidor(doCadastro || limpa(process.env.WHATSAPP_2FA_SERVIDOR));
+  const instancia = (uso === 'cadastro' && limpa(process.env.CADASTRO_EVOLUTION_INSTANCIA)) ||
+    limpa(process.env.EVOLUTION_2FA_INSTANCIA) ||
+    (uso === 'cadastro' && limpa(process.env.CADASTRO_WAHA_SESSION)) ||
+    limpa(process.env.WAHA_2FA_SESSION) || 'edssolution';
+  return { servidor: servidorEscolhido, instancia };
+}
+
+/** envia um texto pela Evolution; { success, chatId?, error? } (nunca lança) */
+async function enviarTextoEvolution(instancia, numero, texto, fetchBase = globalThis.fetch) {
+  if (!disponivel()) return { success: false, error: 'EVOLUTION_URL não está no .env.local do servidor.' };
+  try {
+    const r = await new Evolution(instancia, fetchBase).enviar('sendText', { chatId: `${digitos(numero)}@c.us`, text: texto });
+    const d = await r.json().catch(() => ({}));
+    return r.ok ? { success: true, chatId: d.chatId || null } : { success: false, error: d.error || `HTTP ${r.status}` };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 module.exports = {
+  servidorDosCodigos, enviarTextoEvolution,
   EVOLUTION, WAHA, servidor, disponivel, normalizaServidor, wahaUrlDoEnv, webhookUrlDoEnv, paraWahaDoEnv,
   definirResolvedor, lembrarSessao, limparCache, servidorDaSessao,
   interpretar, comEvolution, Evolution, RespostaLocal,

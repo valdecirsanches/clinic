@@ -8,6 +8,8 @@
 //   CADASTRO_CONFIRMAR_CELULAR=1      0 = não pede código no celular
 //   CADASTRO_CELULAR_CANAL=auto       whatsapp | sms | auto (WhatsApp e, se falhar, SMS)
 //   CADASTRO_WAHA_SESSION=            sessão do WAHA (padrão: WAHA_2FA_SESSION ou edssolution)
+//   CADASTRO_WHATSAPP_SERVIDOR=       waha | evolution (padrão: o mesmo de WHATSAPP_2FA_SERVIDOR)
+//   CADASTRO_EVOLUTION_INSTANCIA=     instância da Evolution (padrão: EVOLUTION_2FA_INSTANCIA)
 //   CADASTRO_CODIGO_NO_LOG=0          1 = escreve o código no log (só para testes!)
 //   SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_FROM
 //   SMSGO_API_KEY / SMSGO_BEARER_TOKEN / SMSGO_API_URL / SMSGO_REMETENTE
@@ -162,6 +164,16 @@ async function enviarEmail(email, codigo) {
 }
 
 async function enviarWhatsApp(numero, codigo) {
+  const evolution = require('./evolution');
+  const codigos = evolution.servidorDosCodigos('cadastro');
+  if (codigos.servidor === evolution.EVOLUTION) {
+    const texto =
+    `*${nomeDoSistema()}* — seu código de confirmação é *${codigo}*.\n\n` +
+    'Ele vale por 10 minutos. Não compartilhe com ninguém.';
+    const r = await evolution.enviarTextoEvolution(codigos.instancia, numero, texto);
+    if (!r.success) throw new Error(`WhatsApp (instância "${codigos.instancia}" da Evolution) não enviou: ${r.error}`);
+    return;
+  }
   const { enviarMensagemRobusta, getWahaApiKey } = require('../routes/whatsapp-shared');
   const serverUrlBruta = (
   process.env.CADASTRO_WAHA_SERVER_URL ||

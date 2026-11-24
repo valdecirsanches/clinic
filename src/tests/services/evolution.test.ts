@@ -399,3 +399,40 @@ describe('limite de tempo no WAHA', () => {
     expect(initRecebido).toBe(init);
   });
 });
+
+describe('códigos da plataforma (duas etapas e cadastro) pela Evolution', () => {
+  const limpar = () => ['WHATSAPP_2FA_SERVIDOR', 'EVOLUTION_2FA_INSTANCIA', 'WAHA_2FA_SESSION', 'CADASTRO_WHATSAPP_SERVIDOR', 'CADASTRO_EVOLUTION_INSTANCIA', 'CADASTRO_WAHA_SESSION'].forEach((n) => delete process.env[n]);
+
+  it('padrão: WAHA com a sessão do 2FA', () => {
+    limpar();
+    process.env.WAHA_2FA_SESSION = 'edssolution';
+    expect(evo.servidorDosCodigos('2fa')).toEqual({ servidor: 'waha', instancia: 'edssolution' });
+    expect(evo.servidorDosCodigos('cadastro')).toEqual({ servidor: 'waha', instancia: 'edssolution' });
+  });
+
+  it('WHATSAPP_2FA_SERVIDOR=evolution vale para o 2FA e para o cadastro; o cadastro pode ter o seu', () => {
+    limpar();
+    process.env.WHATSAPP_2FA_SERVIDOR = 'evolution';
+    process.env.EVOLUTION_2FA_INSTANCIA = 'plataforma';
+    expect(evo.servidorDosCodigos('2fa')).toEqual({ servidor: 'evolution', instancia: 'plataforma' });
+    expect(evo.servidorDosCodigos('cadastro')).toEqual({ servidor: 'evolution', instancia: 'plataforma' });
+    process.env.CADASTRO_WHATSAPP_SERVIDOR = 'waha';
+    expect(evo.servidorDosCodigos('cadastro').servidor).toBe('waha');
+    process.env.CADASTRO_WHATSAPP_SERVIDOR = 'evolution';
+    process.env.CADASTRO_EVOLUTION_INSTANCIA = 'cadastro';
+    expect(evo.servidorDosCodigos('cadastro')).toEqual({ servidor: 'evolution', instancia: 'cadastro' });
+    limpar();
+  });
+
+  it('enviarTextoEvolution manda direto para a instância, sem depender da sessão de clínica', async () => {
+    evo.definirResolvedor(async () => 'waha'); // a mesma sessão numa clínica do WAHA não atrapalha
+    const r = await evo.enviarTextoEvolution('clinica_evo', '5511988887777', 'Seu código é 123456', falso.fetchFalso);
+    expect(r).toEqual({ success: true, chatId: '5511988887777@c.us' });
+    expect(falso.chamadas[0].url).toBe(`${EVO}/message/sendText/clinica_evo`);
+    expect(falso.chamadas[0].corpo).toMatchObject({ number: '5511988887777', text: 'Seu código é 123456' });
+    const falha = await evo.enviarTextoEvolution('nao_existe', '5511988887777', 'x', falso.fetchFalso);
+    expect(falha.success).toBe(false);
+    delete process.env.EVOLUTION_URL;
+    expect((await evo.enviarTextoEvolution('clinica_evo', '5511', 'x', falso.fetchFalso)).error).toMatch(/EVOLUTION_URL/);
+  });
+});

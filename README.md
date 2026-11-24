@@ -61,6 +61,13 @@ na entrada de `/api/webhook/whatsapp`; com "Webhook by Events" ligado, o endere�
 `@lid`: o telefone é procurado nas chaves do evento (remoteJidAlt, senderPn,
 participantPn...) e, se não vier, nos contatos da instância.
 
+Códigos da plataforma (login em duas etapas e cadastro): saem pelo WAHA
+(`WAHA_2FA_SERVER_URL`, `WAHA_2FA_SESSION`) ou, com `WHATSAPP_2FA_SERVIDOR=evolution`, pela
+Evolution (`EVOLUTION_URL` / `EVOLUTION_API_KEY`) na instância `EVOLUTION_2FA_INSTANCIA`
+(padrão: `WAHA_2FA_SESSION`). O cadastro segue a mesma escolha ou a sua
+(`CADASTRO_WHATSAPP_SERVIDOR`, `CADASTRO_EVOLUTION_INSTANCIA`). Na Evolution o envio vai direto
+para a instância, sem depender da sessão de alguma clínica.
+
 Teste: `src/tests/services/evolution.test.ts` (Evolution falsa).
 
 ## Testes

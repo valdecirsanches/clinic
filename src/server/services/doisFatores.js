@@ -6,6 +6,8 @@
 //   WAHA_2FA_SESSION     sessão do WAHA que envia o código (padrão: edssolution)
 //   WAHA_2FA_SERVER_URL  servidor WAHA (padrão: WAHA_SERVER_URL / VITE_WAHA_SERVER_URL)
 //   WAHA_API_KEY         chave do WAHA (a mesma usada no resto do sistema)
+//   WHATSAPP_2FA_SERVIDOR=evolution  envia pela Evolution API (EVOLUTION_URL / EVOLUTION_API_KEY)
+//   EVOLUTION_2FA_INSTANCIA          instância da Evolution (padrão: WAHA_2FA_SESSION ou edssolution)
 //
 // O desafio fica no banco (tabela login_desafios), não na memória: com o
 // servidor em vários processos, a confirmação pode cair em outro processo.
@@ -68,12 +70,26 @@ function hashCodigo(desafioId, codigo) {
 
 async function enviarCodigo(numero, codigo) {
   // Carregado só aqui: o módulo do WhatsApp é grande e não é preciso no login comum
-  const { enviarMensagemRobusta, getWahaApiKey } = require('../routes/whatsapp-shared');
-  const { serverUrl, sessao } = configWaha();
+  const evolution = require('./evolution');
+  const codigos = evolution.servidorDosCodigos('2fa');
   const texto =
   `*EasyClin* — seu código de acesso é *${codigo}*.\n\n` +
   'Ele vale por 5 minutos. Não compartilhe com ninguém.\n' +
   'Se não foi você que tentou entrar, troque sua senha.';
+  if (codigos.servidor === evolution.EVOLUTION) {
+    const r = await evolution.enviarTextoEvolution(codigos.instancia, numero, texto);
+    if (!r.success) {
+      console.error(`🔐 ❌ [2FA] Evolution (instância "${codigos.instancia}"): ${r.error}`);
+      throw erro(
+        422,
+        `Não foi possível enviar o código pelo WhatsApp (instância "${codigos.instancia}" da Evolution API). ` +
+        'Confira se a instância está conectada ou peça ao administrador para desativar a verificação em duas etapas do seu usuário.'
+      );
+    }
+    return;
+  }
+  const { enviarMensagemRobusta, getWahaApiKey } = require('../routes/whatsapp-shared');
+  const { serverUrl, sessao } = configWaha();
   const r = await enviarMensagemRobusta(serverUrl, getWahaApiKey(), `${numero}@c.us`, texto, sessao);
   if (!r || !r.success) {
     throw erro(
