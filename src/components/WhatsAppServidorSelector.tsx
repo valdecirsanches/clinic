@@ -7,8 +7,9 @@
  * conectada de novo (QR Code) no servidor escolhido.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2Icon, ServerIcon } from 'lucide-react';
+import { AlertTriangleIcon, Loader2Icon, ServerIcon } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
+import { Swal } from './ui/SweetAlert';
 
 export type ServidorWhatsapp = 'waha' | 'evolution';
 
@@ -20,6 +21,9 @@ interface InfoServidor {
   evolutionDisponivel: boolean;
   evolutionHost: string;
   podeTrocar: boolean;
+  /** a URL do webhook está no .env.local (senão as respostas dos pacientes não são ligadas) */
+  webhookNoEnv: boolean;
+  webhookVariavel: string;
 }
 
 interface Props {
@@ -42,7 +46,9 @@ export function WhatsAppServidorSelector({ clinicaId, onServidorChange }: Props)
   const carregar = useCallback(async () => {
     if (!clinicaId) return;
     try {
-      const r = await fetch(`${API_BASE_URL}/api/whatsapp/servidor?clinicaId=${encodeURIComponent(clinicaId)}`);
+      const r = await fetch(`${API_BASE_URL}/api/whatsapp/servidor?clinicaId=${encodeURIComponent(clinicaId)}`, {
+        signal: AbortSignal.timeout(15000)
+      });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'Não foi possível ler o servidor do WhatsApp.');
       const servidor: ServidorWhatsapp = d.servidor === 'evolution' ? 'evolution' : 'waha';
@@ -50,7 +56,9 @@ export function WhatsAppServidorSelector({ clinicaId, onServidorChange }: Props)
         servidor,
         evolutionDisponivel: Boolean(d.evolutionDisponivel),
         evolutionHost: String(d.evolutionHost || ''),
-        podeTrocar: Boolean(d.podeTrocar)
+        podeTrocar: Boolean(d.podeTrocar),
+        webhookNoEnv: Boolean(d.webhookNoEnv),
+        webhookVariavel: String(d.webhookVariavel || 'WAHA_WEBHOOK_URL')
       });
       onServidorChange?.(servidor);
     } catch (e) {
@@ -65,9 +73,18 @@ export function WhatsAppServidorSelector({ clinicaId, onServidorChange }: Props)
   const trocar = async (servidor: ServidorWhatsapp) => {
     if (!info || servidor === info.servidor || trocando) return;
     const nome = nomeDoServidorWhatsapp(servidor);
-    if (!window.confirm(`Passar o WhatsApp desta clínica para o ${nome}?\n\nDepois será preciso conectar a sessão de novo (QR Code) no ${nome}. As mensagens deixam de sair pelo servidor atual.`)) {
-      return;
-    }
+    // confirmação no visual do app (sem o alert do navegador)
+    const resposta = await Swal.fire({
+      icon: 'question',
+      title: `Passar para o ${nome}?`,
+      text: `Depois será preciso conectar a sessão de novo (QR Code) no ${nome}. As mensagens deixam de sair pelo servidor atual; a configuração anterior fica guardada.`,
+      showCancelButton: true,
+      confirmButtonText: 'Trocar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#6b7280'
+    });
+    if (!resposta.isConfirmed) return;
     setTrocando(servidor);
     setErro(null);
     setAviso(null);
@@ -75,16 +92,22 @@ export function WhatsAppServidorSelector({ clinicaId, onServidorChange }: Props)
       const r = await fetch(`${API_BASE_URL}/api/whatsapp/servidor`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clinicaId, servidor })
+        body: JSON.stringify({ clinicaId, servidor }),
+        signal: AbortSignal.timeout(20000)
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.success) throw new Error(d.error || 'Não foi possível trocar o servidor do WhatsApp.');
       setInfo((atual) => atual ? { ...atual, servidor } : atual);
+      carregar();
       setAviso(`Pronto: o WhatsApp desta clínica agora usa o ${nome}. Confira a sessão abaixo e, se preciso, conecte pelo QR Code.`);
       onServidorChange?.(servidor);
       window.dispatchEvent(new Event('whatsapp-config-updated'));
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível trocar o servidor do WhatsApp.');
+      setErro(
+        e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError') ?
+        'O servidor demorou para responder. Tente de novo em instantes.' :
+        e instanceof Error ? e.message : 'Não foi possível trocar o servidor do WhatsApp.'
+      );
     } finally {
       setTrocando(null);
     }
@@ -148,6 +171,22 @@ export function WhatsAppServidorSelector({ clinicaId, onServidorChange }: Props)
 
             })}
           </div>
+
+          {info.webhookNoEnv ?
+          <p className="mt-3 text-xs text-gray-500">
+              Webhook das respostas dos pacientes: automático (URL no .env.local do servidor).
+            </p> :
+
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3" role="alert">
+              <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <p className="text-xs text-amber-800">
+                <strong>Webhook não configurado.</strong> As respostas dos pacientes (confirmar ou cancelar
+                consulta) podem não chegar. Coloque <code className="font-mono">{info.webhookVariavel}</code> no
+                .env.local do servidor (ex.: https://sua-api/api/webhook/whatsapp) e reinicie a API; o webhook
+                passa a ser gravado sozinho.
+              </p>
+            </div>
+          }
 
           {aviso && <p className="mt-3 text-xs text-green-700" role="status">{aviso}</p>}
           {erro && <p className="mt-3 text-xs text-red-600" role="alert">{erro}</p>}

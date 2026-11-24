@@ -47,7 +47,13 @@ clínicas; o gravado na clínica só vale sem ele) e as URLs do webhook `WAHA_WE
 Os servidores próprios do código de acesso (`WAHA_2FA_SERVER_URL`, `CADASTRO_WAHA_SERVER_URL`)
 continuam como estão.
 
-Webhook (mesmo critério do Inno): ao criar a instância ou "Ativar e enviar", o webhook é
+Webhook automático: a tela não tem mais o bloco do webhook. Sempre que a sessão é conferida
+(`/api/whatsapp/status`) e ao conectar a clínica, o servidor grava no WAHA/Evolution a URL do
+`.env.local` se a dele estiver diferente (no máximo uma tentativa a cada 10 minutos por sessão).
+Sem `WAHA_WEBHOOK_URL` / `EVOLUTION_WEBHOOK_URL`, nada é alterado e o bloco "Servidor do
+WhatsApp" avisa o super administrador e o administrador.
+
+Webhook na Evolution (mesmo critério do Inno): o webhook é
 gravado na Evolution com `MESSAGES_UPSERT` e `CONNECTION_UPDATE`, mídia em base64 e
 "Webhook by Events" desligado. O evento da Evolution vira o evento `message` do WAHA logo
 na entrada de `/api/webhook/whatsapp`; com "Webhook by Events" ligado, o endereço

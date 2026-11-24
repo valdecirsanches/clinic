@@ -658,6 +658,32 @@ async function buscarWebhooksNoWaha(serverUrl, sessionName, headers) {
   return { success: false, config: null, webhooks: [] };
 }
 
+// ==================== WEBHOOK AUTOMÁTICO ====================
+// A URL fica no .env.local (WAHA_WEBHOOK_URL / EVOLUTION_WEBHOOK_URL). Sempre
+// que a sessão é conferida, o servidor do WhatsApp recebe essa URL se a dele
+// estiver diferente (no máximo uma tentativa a cada 10 minutos por sessão).
+// Sem a variável no .env.local nada é alterado; a tela avisa o administrador.
+const webhookAutomaticoUltimo = new Map(); // sessão → horário da última tentativa
+const WEBHOOK_AUTOMATICO_INTERVALO = 10 * 60 * 1000;
+
+function garantirWebhookAutomatico(serverUrl, sessionName, configAtual = null) {
+  (async () => {
+    const servidor = await evolution.servidorDaSessao(sessionName);
+    const desejado = evolution.webhookUrlDoEnv(servidor);
+    if (!desejado || !serverUrl || !sessionName) return;
+    const url = normalizarWebhookUrl(desejado);
+    const atuais = Array.isArray(configAtual?.webhooks) ? configAtual.webhooks : null;
+    if (atuais && atuais.some((w) => webhookAtendeConfiguracao(w, url))) return; // já está certo
+    // a chave inclui o servidor e a URL: trocar WAHA ↔ Evolution ou mudar o .env tenta de novo na hora
+    const chave = `${servidor}|${sessionName}|${url}`;
+    const ultimo = webhookAutomaticoUltimo.get(chave) || 0;
+    if (Date.now() - ultimo < WEBHOOK_AUTOMATICO_INTERVALO) return;
+    webhookAutomaticoUltimo.set(chave, Date.now());
+    const r = await configurarWebhookNoWaha(serverUrl, sessionName, url, getWahaApiKey());
+    console.log(`🔔 [webhook automático] ${sessionName}: ${r.success ? (r.updated ? 'gravado' : 'já estava certo') : `falhou (${r.error || 'sem detalhe'})`} → ${url}`);
+  })().catch((e) => console.log(`🔔 [webhook automático] ${sessionName}: erro ${e.message}`));
+}
+
 async function configurarWebhookNoWaha(serverUrl, sessionName, webhookUrl, apiKey) {
   console.log(`\n🔔 [webhook-sync] ========================================`);
   console.log(`🔔 Sessão: ${sessionName}`);
@@ -1630,6 +1656,8 @@ router.get('/status', async (req, res) => {
         const data = await r.json();
         const normalized = normalizarStatusWaha(data, session);
         statusCache.set(cacheKey, { result: normalized, ok: true, timestamp: Date.now() });
+        // Webhook automático: a sessão existe → confere/grava a URL do .env.local
+        if (normalized.sessionExists) garantirWebhookAutomatico(serverUrl, session, normalized.config);
         return res.json(normalized);
       } else if (r.status === 401) {
         return res.status(401).json({
@@ -1870,8 +1898,14 @@ db.run(sql, params, function (err) {err ? reject(err) : resolve(this);}));
 // Cada clínica usa o WAHA (padrão) ou a Evolution API. Só o administrador da
 // clínica ou o super administrador troca. O servidor da Evolution vem do .env
 // (EVOLUTION_URL, EVOLUTION_API_KEY) e a instância tem o nome da sessão.
-async function garantirColunaServidor(db) {
-  await dbRunAsync(db, "ALTER TABLE whatsapp_config ADD COLUMN servidorWhatsapp VARCHAR(20) DEFAULT 'waha'", []).catch(() => {});
+const colunaServidorCriada = new Set(); // clínicas já conferidas (evita ALTER TABLE a cada troca)
+async function garantirColunaServidor(db, clinicaId) {
+  if (colunaServidorCriada.has(clinicaId)) return;
+  const linha = await dbGetAsync(db, 'SELECT * FROM whatsapp_config LIMIT 1', []).catch(() => null);
+  if (!linha || !('servidorWhatsapp' in linha)) {
+    await dbRunAsync(db, "ALTER TABLE whatsapp_config ADD COLUMN servidorWhatsapp VARCHAR(20) DEFAULT 'waha'", []).catch(() => {});
+  }
+  colunaServidorCriada.add(clinicaId);
 }
 
 function hostDe(url) {
@@ -1889,7 +1923,10 @@ router.get('/servidor', async (req, res) => {
       evolutionDisponivel: evolution.disponivel(),
       evolutionHost: hostDe(evolution.servidor().url),
       podeTrocar: Boolean(req.usuario && ['admin', 'super_admin'].includes(req.usuario.tipo)),
-      sessionName: config?.sessionName || ''
+      sessionName: config?.sessionName || '',
+      // a URL do webhook fica no .env.local; sem ela a tela avisa
+      webhookNoEnv: Boolean(evolution.webhookUrlDoEnv(evolution.normalizaServidor(config?.servidorWhatsapp))),
+      webhookVariavel: evolution.normalizaServidor(config?.servidorWhatsapp) === evolution.EVOLUTION ? 'EVOLUTION_WEBHOOK_URL' : 'WAHA_WEBHOOK_URL'
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1912,7 +1949,7 @@ router.post('/servidor', async (req, res) => {
   }
   try {
     const db = getClinicaDB(clinicaId);
-    await garantirColunaServidor(db);
+    await garantirColunaServidor(db, clinicaId);
     const agora = new Date().toISOString();
     const config = await dbGetAsync(db, 'SELECT * FROM whatsapp_config WHERE clinicaId = ?', [clinicaId]);
     if (config) {

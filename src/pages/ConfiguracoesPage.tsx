@@ -522,7 +522,6 @@ _Digite o número da opção desejada._`);
   }, [menuAjudaSituacoes]);
   // ⭐ Estado para controlar salvamento manual
   const [isSaving, setIsSaving] = useState(false);
-  const [isApplyingWebhook, setIsApplyingWebhook] = useState(false);
   const [configuredSessionExists, setConfiguredSessionExists] = useState(false);
   // WAHA (padrão) ou Evolution API — escolhido em "Servidor do WhatsApp"
   const [servidorWhatsapp, setServidorWhatsapp] = useState<ServidorWhatsapp>('waha');
@@ -549,92 +548,6 @@ _Digite o número da opção desejada._`);
   Boolean(savedSessionName) && (
   localSessionName.trim() !== savedSessionName ||
   localServerUrl.trim().replace(/\/+$/, '') !== savedServerUrl);
-  const handleAtivarWebhookNoWaha = async () => {
-    const urlNormalizada = webhookUrl.trim();
-    if (!clinicaId || !localServerUrl.trim() || !localSessionName.trim()) {
-      showError(
-        'Conexão incompleta',
-        `Configure o servidor ${nomeServidor} e o nome da sessão antes de ativar o webhook.`
-      );
-      return;
-    }
-    if (hasUnsavedSessionChange) {
-      showError(
-        'Salve e verifique a sessão',
-        `Salve o novo nome da sessão e verifique sua existência no ${nomeServidor} antes de enviar o webhook.`
-      );
-      return;
-    }
-    if (!configuredSessionExists) {
-      showError(
-        'Sessão não encontrada',
-        `O webhook só pode ser enviado para uma sessão já existente e verificada no ${nomeServidor}. Nenhuma sessão será criada.`
-      );
-      return;
-    }
-    setIsApplyingWebhook(true);
-    try {
-      // Persiste a mesma configuração que será aplicada agora no WAHA.
-      skipSyncRef.current = true;
-      setWebhookAtivo(true);
-      await salvarAPI({
-        provider: 'session',
-        serverUrl: localServerUrl,
-        sessionName: localSessionName,
-        apiKey: localApiKey,
-        horasAntecedencia,
-        mensagemTemplate,
-        enviarConfirmacao,
-        webhookAtivo: true,
-        webhookUrl: urlNormalizada,
-        menuAjudaTemplate,
-        menuAjudaSituacoes: JSON.stringify(menuAjudaSituacoes),
-        menuAjudaAtivo,
-        ativo: true
-      } as any);
-      const response = await fetch(
-        `${API_BASE_URL}/api/whatsapp/configure-webhook`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          // A URL do webhook vem do .env.local do servidor (WAHA_WEBHOOK_URL /
-          // EVOLUTION_WEBHOOK_URL); sem ela, a gravada na clínica ou a desta API.
-          body: JSON.stringify({
-            serverUrl: localServerUrl,
-            sessionName: localSessionName,
-            clinicaId
-          })
-        }
-      );
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(
-          result.error ||
-          `Não foi possível atualizar o ${nomeServidor} (${response.status}).`
-        );
-      }
-      await recarregar();
-      success(
-        result.updated === false ?
-        'Webhook já estava ativo' :
-        `Webhook ativado no ${nomeServidor}`,
-        result.updated === false ?
-        `O ${nomeServidor} já estava usando esta URL e os eventos necessários.` :
-        `A URL foi enviada e atualizada na sessão do ${nomeServidor}.`
-      );
-      window.dispatchEvent(new Event('whatsapp-config-updated'));
-    } catch (err: any) {
-      skipSyncRef.current = false;
-      showError(
-        'Não foi possível ativar o webhook',
-        err.message || 'Tente novamente.'
-      );
-    } finally {
-      setIsApplyingWebhook(false);
-    }
-  };
   // ⭐ Liga/desliga o canal WhatsApp e grava na hora. Desligado, nenhum aviso
   // sai por WhatsApp e o serviço deixa de ser cobrado na assinatura.
   const handleToggleWhatsappAtivo = async () => {
@@ -857,58 +770,7 @@ _Digite o número da opção desejada._`);
                 clinicaId={clinicaId}
                 onServidorChange={handleServidorWhatsappChange} />
               
-                    <section
-                className="rounded-xl border border-teal-200 bg-teal-50 p-4"
-                aria-labelledby="webhook-confirmacoes-title">
-                
-                      <div>
-                        <h3
-                    id="webhook-confirmacoes-title"
-                    className="text-sm font-semibold text-teal-950">
-                    
-                          Webhook de confirmações
-                        </h3>
-                        <p className="mt-1 text-xs leading-relaxed text-teal-800">
-                          Recebe as respostas do paciente para confirmar ou
-                          cancelar consultas. O envio é sempre explícito e só
-                          fica disponível depois que a sessão configurada for
-                          confirmada no {nomeServidor}.
-                        </p>
-                      </div>
-                      {/* A URL do webhook fica só no .env.local do servidor */}
-                      <div className="mt-4">
-                        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-xs text-teal-700">
-                            {hasUnsavedSessionChange ?
-                      'Salve e verifique o novo nome da sessão antes de enviar o webhook.' :
-                      configuredSessionExists ?
-                      `Use este botão para ativar o webhook no ${nomeServidor} agora, sem precisar reconectar a sessão.` :
-                      `O envio será liberado após confirmar que a sessão configurada existe no ${nomeServidor}.`}
-                          </p>
-                          <Button
-                      type="button"
-                      onClick={handleAtivarWebhookNoWaha}
-                      disabled={
-                      isApplyingWebhook ||
-                      !configuredSessionExists ||
-                      hasUnsavedSessionChange ||
-                      !localServerUrl.trim() ||
-                      !localSessionName.trim()
-                      }
-                      className="shrink-0 bg-teal-700 text-white hover:bg-teal-800">
-                      
-                            {isApplyingWebhook ?
-                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> :
-
-                      <MessageSquareIcon className="mr-2 h-4 w-4" />
-                      }
-                            {isApplyingWebhook ?
-                      `Enviando ao ${nomeServidor}...` :
-                      `Ativar e enviar ao ${nomeServidor}`}
-                          </Button>
-                        </div>
-                      </div>
-                    </section>
+                    {/* Webhook: automático, com a URL do .env.local (aviso no "Servidor do WhatsApp") */}
                     <WhatsAppSessionManager
                 key={servidorWhatsapp}
                 nomeServidor={nomeServidor}

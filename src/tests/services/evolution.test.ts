@@ -367,3 +367,35 @@ describe('endereços no .env.local (WAHA_URL e webhook)', () => {
     expect(evo.webhookUrlDoEnv('waha')).toBe('');
   });
 });
+
+describe('limite de tempo (Evolution fora do ar não trava a tela)', () => {
+  it('a consulta da sessão desiste quando a Evolution não responde', async () => {
+    const parado = (_u: string, init: any) => new Promise((_r, rejeita) => {
+      init.signal.addEventListener('abort', () => rejeita(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    });
+    const fw = evo.comEvolution(parado);
+    const controle = new AbortController();
+    setTimeout(() => controle.abort(), 50); // o /status usa 4s; aqui 50ms
+    const inicio = Date.now();
+    await expect(fw(`${WAHA}/api/sessions/clinica_evo`, { method: 'GET', signal: controle.signal })).rejects.toThrow(/não respondeu/);
+    expect(Date.now() - inicio).toBeLessThan(2000);
+  });
+});
+
+describe('limite de tempo no WAHA', () => {
+  it('pedido ao WAHA sem limite próprio recebe um (sinal repassado ao fetch)', async () => {
+    let sinal: any = null;
+    const fw = evo.comEvolution(async (_u: string, init: any) => {sinal = init.signal;return { ok: true, status: 200 };});
+    await fw(`${WAHA}/api/sessions/clinica_waha/start`, post({}));
+    expect(sinal).toBeTruthy();
+    expect(sinal.aborted).toBe(false);
+  });
+
+  it('pedidos que não são do WAHA seguem sem mudança', async () => {
+    let initRecebido: any = 'nada';
+    const fw = evo.comEvolution(async (_u: string, init: any) => {initRecebido = init;return { ok: true, status: 200 };});
+    const init = post({ x: 1 });
+    await fw('https://graph.facebook.com/v19.0/123/messages', init);
+    expect(initRecebido).toBe(init);
+  });
+});

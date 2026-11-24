@@ -207,6 +207,9 @@ function interpretar(url, init = {}) {
 }
 
 // --------------------------------------------------------------- Evolution
+const TEMPO_PADRAO_MS = 15000; // consultas (como no Fácil)
+const TEMPO_ENVIO_MS = 60000; // envios e mídia
+const TEMPO_WAHA_MS = 20000; // consultas ao WAHA sem limite próprio
 const MAPA_STATUS = { open: 'WORKING', connecting: 'SCAN_QR_CODE', close: 'STOPPED', closed: 'STOPPED', refused: 'FAILED' };
 const EVENTOS_WAHA = ['message', 'message.any', 'session.status'];
 
@@ -221,17 +224,40 @@ class Evolution {
 
   get inst() { return encodeURIComponent(this.sessao); }
 
-  /** [status, dados]; lança só em falha de rede (como o fetch) */
-  async chama(metodo, caminho, corpo = null, sinal = undefined) {
+  /**
+   * [status, dados]; lança só em falha de rede ou tempo esgotado (como o fetch).
+   * Toda chamada tem limite de tempo (como no Fácil): sem ele, uma Evolution
+   * fora do ar deixava a tela esperando para sempre.
+   */
+  async chama(metodo, caminho, corpo = null, sinal = undefined, tempoMs = TEMPO_PADRAO_MS) {
     const headers = { Accept: 'application/json', apikey: this.chave };
-    const opcoes = { method: metodo, headers };
+    const controle = new AbortController();
+    const relogio = setTimeout(() => controle.abort(), tempoMs);
+    if (sinal) {
+      if (sinal.aborted) controle.abort();
+      else sinal.addEventListener('abort', () => controle.abort(), { once: true });
+    }
+    const opcoes = { method: metodo, headers, signal: controle.signal };
     if (corpo !== null) {
       headers['Content-Type'] = 'application/json';
       opcoes.body = JSON.stringify(corpo);
     }
-    if (sinal) opcoes.signal = sinal;
-    const r = await this.fetch(`${this.url}${caminho}`, opcoes);
-    const texto = await r.text().catch(() => '');
+    let r;
+    let texto;
+    try {
+      r = await this.fetch(`${this.url}${caminho}`, opcoes);
+      texto = await r.text().catch(() => '');
+    } catch (e) {
+      if (controle.signal.aborted) {
+        const erro = new Error(`A Evolution API (${this.url}) não respondeu em ${Math.round(tempoMs / 1000)}s.`);
+        erro.name = 'AbortError';
+        erro.type = 'aborted';
+        throw erro;
+      }
+      throw e;
+    } finally {
+      clearTimeout(relogio);
+    }
     let dados;
     try { dados = texto ? JSON.parse(texto) : {}; } catch (e) { dados = { raw: texto.slice(0, 500) }; }
     return [r.status, dados];
@@ -427,7 +453,7 @@ class Evolution {
       };
     }
     if (!['sendText', 'sendLocation'].includes(op) && !midia) return json(400, { error: 'Arquivo ausente (file.url ou file.data).' });
-    const [st, d0] = await this.chama('POST', `/message/${caminho}/${this.inst}`, envio, sinal);
+    const [st, d0] = await this.chama('POST', `/message/${caminho}/${this.inst}`, envio, sinal, TEMPO_ENVIO_MS);
     const d = ehObj(d0) ? d0 : { resposta: d0 };
     if (st >= 400) return json(st, { error: Evolution.erro(st, d), evolution: d });
     const chave = ehObj(d.key) ? d.key : {};
@@ -503,7 +529,7 @@ class Evolution {
     if (!messageId) return json(400, { error: 'messageId é obrigatório' });
     // o WAHA usa ids "false_55...@c.us_ABC"; a Evolution só o final
     const id = String(messageId).split('_').pop();
-    const [st, d] = await this.chama('POST', `/chat/getBase64FromMediaMessage/${this.inst}`, { message: { key: { id } }, convertToMp4: true }, sinal);
+    const [st, d] = await this.chama('POST', `/chat/getBase64FromMediaMessage/${this.inst}`, { message: { key: { id } }, convertToMp4: true }, sinal, TEMPO_ENVIO_MS);
     const b64 = ehObj(d) ? String(d.base64 || '') : '';
     if (st >= 400 || !b64) return json(st >= 400 ? st : 404, { error: Evolution.erro(st, d) });
     const tipo = String(d.mimetype || 'application/octet-stream').split(';')[0].trim() || 'application/octet-stream';
@@ -573,7 +599,34 @@ function comEvolution(fetchBase) {
       return r;
     }
     // WAHA: o endereço vem do .env.local (WAHA_URL) quando ele existe
-    return fetchBase(paraWahaDoEnv(texto, pedido), init);
+    const destino = paraWahaDoEnv(texto, pedido);
+    const ehWaha = Boolean(pedido) || destino !== texto || (() => {
+      try { return WAHA_SEM_SESSAO.test(new URL(texto).pathname); } catch (e) { return false; }
+    })();
+    if (!ehWaha) return fetchBase(destino, init);
+    // Limite de tempo também no WAHA: um WAHA que não responde não pode deixar a
+    // tela esperando para sempre (quem já passa o próprio limite continua com ele).
+    const tempoMs = pedido && (ENVIOS.includes(pedido.op) || pedido.op === 'midia' || pedido.op === 'legado') ? TEMPO_ENVIO_MS : TEMPO_WAHA_MS;
+    const controle = new AbortController();
+    const relogio = setTimeout(() => controle.abort(), tempoMs);
+    const externo = init && init.signal;
+    if (externo) {
+      if (externo.aborted) controle.abort();
+      else externo.addEventListener('abort', () => controle.abort(), { once: true });
+    }
+    try {
+      return await fetchBase(destino, { ...(init || {}), signal: controle.signal });
+    } catch (e) {
+      if (controle.signal.aborted && !(externo && externo.aborted)) {
+        const erro = new Error(`O WAHA (${new URL(destino).host}) não respondeu em ${Math.round(tempoMs / 1000)}s.`);
+        erro.name = 'AbortError';
+        erro.type = 'aborted';
+        throw erro;
+      }
+      throw e;
+    } finally {
+      clearTimeout(relogio);
+    }
   }
   fetchWhatsApp.original = fetchBase;
   return fetchWhatsApp;
