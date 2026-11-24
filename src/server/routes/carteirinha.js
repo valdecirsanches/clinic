@@ -22,6 +22,8 @@ if (typeof globalThis.fetch === 'function') {
     }
   }
 }
+// Sessões da Evolution API: o envio é traduzido (services/evolution.js)
+fetch = require('../services/evolution').comEvolution(fetch);
 
 // Diretório para salvar as carteirinhas
 const CARTEIRINHAS_DIR = path.join(__dirname, '..', 'uploads', 'carteirinhas');

@@ -28,6 +28,12 @@ const path = require('path');
 const fs = require('fs');
 const { uploadToCloud } = require('../services/cloudStorage');
 
+// ⭐ Evolution API como alternativa ao WAHA (por clínica): os pedidos de sessões
+// que usam a Evolution são traduzidos em services/evolution.js; o resto segue
+// para o WAHA exatamente como antes.
+const evolution = require('../services/evolution');
+fetch = evolution.comEvolution(fetch);
+
 // ⭐⭐⭐ FIX v15.1: Garante que .env.local seja carregado AQUI também ⭐⭐⭐
 // (caso start-server.js não tenha conseguido carregar)
 if (!process.env.WAHA_API_KEY && !process.env.VITE_WAHA_API_KEY) {
@@ -1141,8 +1147,24 @@ async function buscarTodasClinicasPorSession(sessionId) {const resultado = [];tr
 // ⭐⭐⭐ FIX v10.2: Limpa cache quando config é atualizada ⭐⭐⭐
 global.limparCacheSessionClinica = function () {
   sessionClinicaCache.clear();
+  evolution.limparCache();
   console.log('🧹 [buscarClinicaPorSession] Cache de sessão limpo');
 };
+
+// ⭐ Servidor do WhatsApp (WAHA ou Evolution API) da clínica dona da sessão.
+// Sem fallback de "única clínica": só a sessão gravada na clínica decide.
+async function servidorWhatsappDaSessao(sessionId) {
+  const clinicas = await dbGlobal.prepare('SELECT id FROM clinicas').all();
+  for (const c of clinicas) {
+    try {
+      const db = getClinicaDB(c.id);
+      const cfg = await new Promise((r) => db.get('SELECT * FROM whatsapp_config WHERE clinicaId = ?', [c.id], (e, row) => r(e ? null : row)));
+      if (cfg && String(cfg.sessionName || '').trim() === sessionId) return evolution.normalizaServidor(cfg.servidorWhatsapp);
+    } catch (e) {/* clínica sem tabela ainda */}
+  }
+  return evolution.WAHA;
+}
+evolution.definirResolvedor(servidorWhatsappDaSessao);
 
 // ⭐⭐⭐ NOVO v10.3: Buscar paciente pelo chatId do WhatsApp (busca DIRETA e RÁPIDA) ⭐⭐⭐
 async function buscarPacientePorWhatsAppChatId(clinicaId, chatId) {

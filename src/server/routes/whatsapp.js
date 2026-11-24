@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 
 const shared = require('./whatsapp-shared');
+const evolution = require('../services/evolution');
 const {
   fetch, getClinicaDB, dbGlobal,
   WHATSAPP_MODULE_VERSION, WHATSAPP_MODULE_BUILD,
@@ -25,6 +26,17 @@ const {
   limparTodosDialogosUsuario,
   conversasAguardandoMotivo
 } = shared;
+
+// ⭐ Endereço do WAHA: o do .env.local (WAHA_URL) vale para todas as clínicas e
+// substitui o que a tela mandar; sem WAHA_URL, vale o gravado na clínica.
+router.use((req, res, next) => {
+  const doEnv = evolution.wahaUrlDoEnv();
+  if (doEnv) {
+    if (req.query) req.query.serverUrl = doEnv;
+    if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) req.body.serverUrl = doEnv;
+  }
+  next();
+});
 
 // ⭐⭐⭐ NOVA ROTA: Ativar diálogo de ajuda externamente ⭐⭐⭐
 router.post('/ativar-dialogo', async (req, res) => {
@@ -624,6 +636,7 @@ async function buscarWebhooksNoWaha(serverUrl, sessionName, headers) {
   for (const url of endpoints) {
     try {
       const response = await fetch(url, { method: 'GET', headers });
+      if (!response.ok && response.evolution) break; // Evolution: não cai na listagem do WAHA
       if (!response.ok) continue;
       const data = await response.json();
       const sessionData = Array.isArray(data) ?
@@ -752,7 +765,13 @@ router.post('/configure-webhook', async (req, res) => {
   // ⭐⭐⭐ FIX v15.0: ÚNICA fonte de apiKey = .env.local ⭐⭐⭐
   const wahaApiKey = getWahaApiKey();
 
-  let finalWebhookUrl = String(webhookUrl || '').trim();
+  // A URL vem do .env.local (WAHA_WEBHOOK_URL / EVOLUTION_WEBHOOK_URL); a tela não mostra mais.
+  const servidorDaSessao = await evolution.servidorDaSessao(String(sessionName).trim());
+  let finalWebhookUrl = evolution.webhookUrlDoEnv(servidorDaSessao) || String(webhookUrl || '').trim();
+  if (!finalWebhookUrl && clinicaId) {
+    const cfgClinica = await dbGetAsync(getClinicaDB(clinicaId), 'SELECT webhookUrl FROM whatsapp_config WHERE clinicaId = ?', [clinicaId]).catch(() => null);
+    finalWebhookUrl = String(cfgClinica?.webhookUrl || '').trim();
+  }
   if (!finalWebhookUrl) {
     const host = req.get('host');
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
@@ -835,6 +854,7 @@ router.get('/check-webhook', async (req, res) => {
   for (const url of endpoints) {
     try {
       const r = await fetch(url, { method: 'GET', headers });
+      if (!r.ok && r.evolution) break; // Evolution: não cai na listagem do WAHA
       if (r.ok) {
         const data = await r.json();
 
@@ -1620,6 +1640,12 @@ router.get('/status', async (req, res) => {
           message: 'Unauthorized'
         });
       } else if (r.status === 404) {
+        if (r.evolution) {
+          // Evolution API: a instância não existe (não procura na listagem do WAHA)
+          const naoExiste = normalizarStatusWaha([], session);
+          statusCache.set(cacheKey, { result: naoExiste, ok: true, timestamp: Date.now() });
+          return res.json(naoExiste);
+        }
         continue;
       } else {
         await r.text().catch(() => '');
@@ -1665,6 +1691,11 @@ async function confirmarSessaoExistente(serverUrl, encodedSessionName, sessionNa
 
     if (detailsResponse.ok) {
       return { exists: true, attempts };
+    }
+    // Evolution API: a resposta da instância é definitiva; a listagem seria a do
+    // WAHA, onde pode haver outra sessão com o mesmo nome.
+    if (detailsResponse.evolution) {
+      return { exists: false, attempts };
     }
   } catch (error) {
     attempts.push({
@@ -1814,13 +1845,15 @@ function nomeSessaoDaClinica(clinicaId) {
 }
 
 function servidorWahaDaPlataforma() {
-  const bruto = String(process.env.WAHA_SERVER_URL || process.env.VITE_WAHA_SERVER_URL || '').trim();
+  const bruto = String(process.env.WAHA_URL || process.env.WAHA_SERVER_URL || process.env.VITE_WAHA_SERVER_URL || '').trim();
   if (!bruto) return '';
   return cleanUrl(/^https?:\/\//i.test(bruto) ? bruto : `https://${bruto}`);
 }
 
-function webhookPadrao(req) {
-  const doEnv = String(process.env.WAHA_WEBHOOK_URL || '').trim();
+// URL do webhook: do .env.local (WAHA_WEBHOOK_URL / EVOLUTION_WEBHOOK_URL, como na
+// Evolution); sem ela, a URL desta API (/api/webhook/whatsapp).
+function webhookPadrao(req, servidor = evolution.WAHA) {
+  const doEnv = evolution.webhookUrlDoEnv(servidor);
   if (doEnv) return normalizarWebhookUrl(doEnv);
   const host = req.get('x-forwarded-host') || req.get('host');
   const local = !host || host.includes('localhost') || host.includes('127.0.0.1');
@@ -1833,6 +1866,74 @@ db.get(sql, params, (err, row) => err ? reject(err) : resolve(row || null)));
 const dbRunAsync = (db, sql, params) => new Promise((resolve, reject) =>
 db.run(sql, params, function (err) {err ? reject(err) : resolve(this);}));
 
+// ==================== SERVIDOR DO WHATSAPP: WAHA OU EVOLUTION API ====================
+// Cada clínica usa o WAHA (padrão) ou a Evolution API. Só o administrador da
+// clínica ou o super administrador troca. O servidor da Evolution vem do .env
+// (EVOLUTION_URL, EVOLUTION_API_KEY) e a instância tem o nome da sessão.
+async function garantirColunaServidor(db) {
+  await dbRunAsync(db, "ALTER TABLE whatsapp_config ADD COLUMN servidorWhatsapp VARCHAR(20) DEFAULT 'waha'", []).catch(() => {});
+}
+
+function hostDe(url) {
+  try { return new URL(url).host; } catch (e) { return ''; }
+}
+
+router.get('/servidor', async (req, res) => {
+  const clinicaId = String(req.query.clinicaId || '').trim();
+  if (!clinicaId) return res.status(400).json({ error: 'clinicaId é obrigatório' });
+  try {
+    const db = getClinicaDB(clinicaId);
+    const config = await dbGetAsync(db, 'SELECT * FROM whatsapp_config WHERE clinicaId = ?', [clinicaId]).catch(() => null);
+    res.json({
+      servidor: evolution.normalizaServidor(config?.servidorWhatsapp),
+      evolutionDisponivel: evolution.disponivel(),
+      evolutionHost: hostDe(evolution.servidor().url),
+      podeTrocar: Boolean(req.usuario && ['admin', 'super_admin'].includes(req.usuario.tipo)),
+      sessionName: config?.sessionName || ''
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/servidor', async (req, res) => {
+  const usuario = req.usuario;
+  const clinicaId = String(req.body?.clinicaId || '').trim();
+  const pedido = String(req.body?.servidor || '').toLowerCase();
+  if (!clinicaId) return res.status(400).json({ error: 'Selecione a clínica.' });
+  if (!usuario || !['admin', 'super_admin'].includes(usuario.tipo)) {
+    return res.status(403).json({ error: 'Somente o administrador da clínica pode trocar o servidor do WhatsApp.' });
+  }
+  if (![evolution.WAHA, evolution.EVOLUTION].includes(pedido)) {
+    return res.status(400).json({ error: 'Servidor inválido: use "waha" ou "evolution".' });
+  }
+  if (pedido === evolution.EVOLUTION && !evolution.disponivel()) {
+    return res.status(503).json({ error: 'O servidor da Evolution API não está configurado (EVOLUTION_URL no .env).', codigo: 'EVOLUTION_NAO_CONFIGURADA' });
+  }
+  try {
+    const db = getClinicaDB(clinicaId);
+    await garantirColunaServidor(db);
+    const agora = new Date().toISOString();
+    const config = await dbGetAsync(db, 'SELECT * FROM whatsapp_config WHERE clinicaId = ?', [clinicaId]);
+    if (config) {
+      await dbRunAsync(db, 'UPDATE whatsapp_config SET servidorWhatsapp = ?, atualizadoEm = ? WHERE clinicaId = ?', [pedido, agora, clinicaId]);
+    } else {
+      // Primeira configuração: nasce ativa, como em "Conectar o WhatsApp desta clínica"
+      await dbRunAsync(db,
+      'INSERT INTO whatsapp_config (id, clinicaId, provider, serverUrl, sessionName, ativo, horasAntecedencia, enviarConfirmacao, webhookUrl, webhookAtivo, servidorWhatsapp, atualizadoEm) VALUES (?, ?, ?, ?, ?, 1, 24, 1, ?, 1, ?, ?)',
+      [`whatsapp_${Date.now()}`, clinicaId, 'session', servidorWahaDaPlataforma(), '', '', pedido, agora]);
+    }
+    if (global.limparCacheSessionClinica) global.limparCacheSessionClinica();
+    evolution.limparCache();
+    statusCache.clear();
+    console.log(`📱 [servidor] Clínica ${clinicaId}: WhatsApp agora pelo ${pedido === evolution.EVOLUTION ? 'Evolution API' : 'WAHA'} (por ${usuario.email})`);
+    res.json({ success: true, servidor: pedido, sessionName: config?.sessionName || '' });
+  } catch (err) {
+    console.error('📱 ❌ [servidor]', err);
+    res.status(500).json({ error: 'Não foi possível gravar o servidor do WhatsApp agora. Tente de novo.' });
+  }
+});
+
 router.post('/session/criar-da-clinica', async (req, res) => {
   const usuario = req.usuario;
   const clinicaId = String(req.body?.clinicaId || '').trim();
@@ -1842,19 +1943,28 @@ router.post('/session/criar-da-clinica', async (req, res) => {
   }
   // (o middleware de autenticação já conferiu que a clínica é da operadora dele)
 
-  const serverUrl = servidorWahaDaPlataforma();
-  if (!serverUrl) {
-    return res.status(503).json({
-      error: 'O servidor de WhatsApp da plataforma ainda não foi configurado. Avise o suporte do EasyClin.',
-      codigo: 'WAHA_NAO_CONFIGURADO'
-    });
-  }
   const apiKey = getWahaApiKey();
   const headers = getWahaHeaders(apiKey);
 
   try {
     const db = getClinicaDB(clinicaId);
     const config = await dbGetAsync(db, 'SELECT * FROM whatsapp_config WHERE clinicaId = ?', [clinicaId]);
+    const usaEvolution = evolution.normalizaServidor(config?.servidorWhatsapp) === evolution.EVOLUTION;
+    if (usaEvolution && !evolution.disponivel()) {
+      return res.status(503).json({
+        error: 'A clínica usa a Evolution API, mas o servidor da Evolution ainda não foi configurado. Avise o suporte do EasyClin.',
+        codigo: 'EVOLUTION_NAO_CONFIGURADA'
+      });
+    }
+    // Na Evolution o endereço gravado fica sendo o do WAHA (para voltar a ele);
+    // os pedidos vão para EVOLUTION_URL de qualquer forma.
+    const serverUrl = servidorWahaDaPlataforma() || (usaEvolution ? evolution.servidor().url : '');
+    if (!serverUrl) {
+      return res.status(503).json({
+        error: 'O servidor de WhatsApp da plataforma ainda não foi configurado. Avise o suporte do EasyClin.',
+        codigo: 'WAHA_NAO_CONFIGURADO'
+      });
+    }
 
     // 1. Já tem sessão configurada e ela existe no WAHA: não cria nada.
     const configurada = String(config?.sessionName || '').trim();
@@ -1868,7 +1978,10 @@ router.post('/session/criar-da-clinica', async (req, res) => {
     }
 
     // 2. Cria (ou reaproveita) a sessão com o nome automático desta clínica.
-    const nome = nomeSessaoDaClinica(clinicaId);
+    //    Na Evolution a instância tem o nome da sessão já gravada (se houver),
+    //    para que voltar ao WAHA não perca a sessão de lá.
+    const nome = usaEvolution && configurada ? configurada : nomeSessaoDaClinica(clinicaId);
+    evolution.lembrarSessao(nome, usaEvolution ? evolution.EVOLUTION : evolution.WAHA);
     const jaExiste = await confirmarSessaoExistente(serverUrl, encodeURIComponent(nome), nome, headers);
     if (jaExiste.unauthorized) return res.status(502).json({ error: 'O servidor de WhatsApp recusou a chave da plataforma. Avise o suporte.' });
     let criada = false;
@@ -1897,7 +2010,10 @@ router.post('/session/criar-da-clinica', async (req, res) => {
     statusCache.delete(`${serverUrl}_${nome}`);
 
     // 3. Webhook de respostas (confirmar/cancelar consulta pelo WhatsApp)
-    const webhookUrl = config?.webhookUrl && String(config.webhookUrl).trim() ? normalizarWebhookUrl(config.webhookUrl) : webhookPadrao(req);
+    const servidorDaClinica = usaEvolution ? evolution.EVOLUTION : evolution.WAHA;
+    const webhookUrl = evolution.webhookUrlDoEnv(servidorDaClinica) ?
+    webhookPadrao(req, servidorDaClinica) :
+    config?.webhookUrl && String(config.webhookUrl).trim() ? normalizarWebhookUrl(config.webhookUrl) : webhookPadrao(req, servidorDaClinica);
     const webhook = await configurarWebhookNoWaha(serverUrl, nome, webhookUrl, apiKey).catch((e) => ({ success: false, error: e.message }));
 
     // 4. Grava na configuração da clínica (o canal "Ativo" continua como estava;

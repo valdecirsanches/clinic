@@ -511,6 +511,7 @@ async function createClinicaTables(poolPromise, dbName, clinicaId) {
       webhookAtivo TINYINT(1) DEFAULT 1,
       menuAjudaTemplate TEXT,
       menuAjudaSituacoes TEXT,
+      servidorWhatsapp VARCHAR(20) DEFAULT 'waha',
       atualizadoEm VARCHAR(50) NOT NULL
     )`,
 

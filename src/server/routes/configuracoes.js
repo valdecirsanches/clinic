@@ -111,7 +111,9 @@ function garantirColunasWhatsApp(db, done) {
   `ALTER TABLE whatsapp_config ADD COLUMN webhookAtivo TINYINT(1) DEFAULT 1`,
   `ALTER TABLE whatsapp_config ADD COLUMN menuAjudaTemplate TEXT DEFAULT ''`,
   `ALTER TABLE whatsapp_config ADD COLUMN menuAjudaSituacoes TEXT DEFAULT ''`,
-  `ALTER TABLE whatsapp_config ADD COLUMN menuAjudaAtivo TINYINT(1) DEFAULT 1`];
+  `ALTER TABLE whatsapp_config ADD COLUMN menuAjudaAtivo TINYINT(1) DEFAULT 1`,
+  // WAHA (padrão) ou Evolution API: muda só por POST /api/whatsapp/servidor
+  `ALTER TABLE whatsapp_config ADD COLUMN servidorWhatsapp VARCHAR(20) DEFAULT 'waha'`];
 
 
   const executarProxima = (index) => {

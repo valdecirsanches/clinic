@@ -33,6 +33,7 @@ const {
   buscarMensagemPendente, fecharMensagensPendentes,
   limparTodosDialogosUsuario
 } = shared;
+const evolution = require('../services/evolution');
 
 // ==================== WEBHOOK - RECEBE MENSAGENS DO WAHA ====================
 
@@ -192,12 +193,14 @@ router.post('/webhook', async (req, res) => {
   // Responde imediatamente para o WAHA não dar timeout
   res.status(200).json({ received: true });
 
-  const body = req.body;
+  // Evento da Evolution API → mesmo formato do WAHA (o resto não muda)
+  const body = evolution.ehEventoEvolution(req.body) ? evolution.eventoComoWaha(req.body) : req.body || {};
 
   // ⭐ Armazena para debug
   ultimosWebhooks.unshift({
     timestamp: new Date().toISOString(),
     event: body.event || 'unknown',
+    servidor: body.evolution ? 'Evolution API' : 'WAHA',
     from: body.payload?.from || body.from || 'unknown',
     hasMedia: !!(body.payload?.hasMedia || body.payload?.mediaUrl),
     bodyKeys: Object.keys(body),
@@ -230,7 +233,7 @@ router.post('/webhook', async (req, res) => {
             const clinicaInfo = await buscarClinicaPorSession(sessionId);
             if (clinicaInfo && clinicaInfo.config) {
               const cfg = clinicaInfo.config;
-              const srvUrl = cleanUrl(cfg.serverUrl || cfg.wahaUrl || '');
+              const srvUrl = evolution.wahaUrlDoEnv() || cleanUrl(cfg.serverUrl || cfg.wahaUrl || '');
               const wahaApiKey = getWahaApiKey();
 
               if (srvUrl) {
@@ -250,9 +253,11 @@ router.post('/webhook', async (req, res) => {
                     console.log(`🔔 [FIX v21.1] ⚠️ Webhook SEM eventos de mensagem! Reconfigurando...`);
                     const host = req.get('host');
                     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-                    const webhookUrl = host && !host.includes('localhost') ?
+                    // URL do .env.local (WAHA_WEBHOOK_URL / EVOLUTION_WEBHOOK_URL) ou a desta API
+                    const webhookUrl = evolution.webhookUrlDoEnv(body.evolution ? evolution.EVOLUTION : evolution.WAHA) || (
+                    host && !host.includes('localhost') ?
                     `https://${host}/api/webhook/whatsapp` :
-                    `${protocol}://${host}/api/webhook/whatsapp`;
+                    `${protocol}://${host}/api/webhook/whatsapp`);
 
                     // Tenta PUT para reconfigurar com todos os eventos
                     const putResp = await fetch(`${srvUrl}/api/sessions/${sessionId}`, {
@@ -397,7 +402,7 @@ router.post('/webhook', async (req, res) => {
 
     const { clinicaId, config } = clinicaInfo;
     // ⭐⭐⭐ FIX v9.1: LIMPA serverUrl do banco (pode ter barra final que causa 401) ⭐⭐⭐
-    const serverUrl = cleanUrl(config.serverUrl);
+    const serverUrl = evolution.wahaUrlDoEnv() || cleanUrl(config.serverUrl);
     const wahaApiKey = getWahaApiKey();
 
     console.log(`📩 Clínica: ${clinicaId}, Sessão: ${sessionId}`);

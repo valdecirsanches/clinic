@@ -657,6 +657,15 @@ app.post('/api/webhook/whatsapp', (req, res) => {
   webhookRoutes(req, res);
 });
 
+// Evolution API com "Webhook by Events" ligado chama <url>/<evento>
+// (ex.: /api/webhook/whatsapp/messages-upsert): mesmo webhook.
+// Aceita também a barra dupla (.../whatsapp//messages-upsert), como no Inno.
+app.post(/^\/api\/webhook\/whatsapp\/+[\w.-]+\/?$/, (req, res) => {
+  console.log(`📩 POST ${req.path} (Evolution por evento → /api/whatsapp/webhook)`);
+  req.url = '/webhook';
+  webhookRoutes(req, res);
+});
+
 // ⭐⭐⭐ WEBHOOK COMPATIBILIDADE: /webhook/resposta/ ⭐⭐⭐
 // O WAHA pode estar configurado com esta URL - redireciona para o webhook principal
 app.post('/webhook/resposta', (req, res) => {

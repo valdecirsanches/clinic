@@ -9,6 +9,11 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { WhatsAppSessionManager } from '../components/WhatsAppSessionManager';
+import {
+  WhatsAppServidorSelector,
+  nomeDoServidorWhatsapp,
+  type ServidorWhatsapp } from
+'../components/WhatsAppServidorSelector';
 import { BancoConfigForm } from '../components/BancoConfigForm';
 import { MigrationButton } from '../components/MigrationButton';
 import { MigrationButtonCrmUf } from '../components/MigrationButtonCrmUf';
@@ -519,6 +524,15 @@ _Digite o número da opção desejada._`);
   const [isSaving, setIsSaving] = useState(false);
   const [isApplyingWebhook, setIsApplyingWebhook] = useState(false);
   const [configuredSessionExists, setConfiguredSessionExists] = useState(false);
+  // WAHA (padrão) ou Evolution API — escolhido em "Servidor do WhatsApp"
+  const [servidorWhatsapp, setServidorWhatsapp] = useState<ServidorWhatsapp>('waha');
+  const nomeServidor = nomeDoServidorWhatsapp(servidorWhatsapp);
+  const handleServidorWhatsappChange = useCallback((servidor: ServidorWhatsapp) => {
+    setServidorWhatsapp((atual) => {
+      if (atual !== servidor) setConfiguredSessionExists(false);
+      return servidor;
+    });
+  }, []);
   // ⭐ FIX: Removido auto-save — agora usa botão manual "Salvar"
   const handleServerUrlChange = useCallback((url: string) => {
     setConfiguredSessionExists(false);
@@ -540,33 +554,21 @@ _Digite o número da opção desejada._`);
     if (!clinicaId || !localServerUrl.trim() || !localSessionName.trim()) {
       showError(
         'Conexão incompleta',
-        'Configure o servidor WAHA e o nome da sessão antes de ativar o webhook.'
+        `Configure o servidor ${nomeServidor} e o nome da sessão antes de ativar o webhook.`
       );
       return;
     }
     if (hasUnsavedSessionChange) {
       showError(
         'Salve e verifique a sessão',
-        'Salve o novo nome da sessão e verifique sua existência no WAHA antes de enviar o webhook.'
+        `Salve o novo nome da sessão e verifique sua existência no ${nomeServidor} antes de enviar o webhook.`
       );
       return;
     }
     if (!configuredSessionExists) {
       showError(
         'Sessão não encontrada',
-        'O webhook só pode ser enviado para uma sessão já existente e verificada no WAHA. Nenhuma sessão será criada.'
-      );
-      return;
-    }
-    try {
-      const parsedUrl = new URL(urlNormalizada);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        throw new Error('A URL deve usar HTTP ou HTTPS.');
-      }
-    } catch (err: any) {
-      showError(
-        'URL inválida',
-        err.message || 'Informe uma URL HTTP(S) válida.'
+        `O webhook só pode ser enviado para uma sessão já existente e verificada no ${nomeServidor}. Nenhuma sessão será criada.`
       );
       return;
     }
@@ -597,10 +599,12 @@ _Digite o número da opção desejada._`);
           headers: {
             'Content-Type': 'application/json'
           },
+          // A URL do webhook vem do .env.local do servidor (WAHA_WEBHOOK_URL /
+          // EVOLUTION_WEBHOOK_URL); sem ela, a gravada na clínica ou a desta API.
           body: JSON.stringify({
             serverUrl: localServerUrl,
             sessionName: localSessionName,
-            webhookUrl: urlNormalizada
+            clinicaId
           })
         }
       );
@@ -608,17 +612,17 @@ _Digite o número da opção desejada._`);
       if (!response.ok) {
         throw new Error(
           result.error ||
-          `Não foi possível atualizar o WAHA (${response.status}).`
+          `Não foi possível atualizar o ${nomeServidor} (${response.status}).`
         );
       }
       await recarregar();
       success(
         result.updated === false ?
         'Webhook já estava ativo' :
-        'Webhook ativado no WAHA',
+        `Webhook ativado no ${nomeServidor}`,
         result.updated === false ?
-        'O WAHA já estava usando esta URL e os eventos necessários.' :
-        'A URL foi enviada e atualizada na sessão WAHA.'
+        `O ${nomeServidor} já estava usando esta URL e os eventos necessários.` :
+        `A URL foi enviada e atualizada na sessão do ${nomeServidor}.`
       );
       window.dispatchEvent(new Event('whatsapp-config-updated'));
     } catch (err: any) {
@@ -849,6 +853,10 @@ _Digite o número da opção desejada._`);
                         </button>
                       </div>
                     </section>
+                    <WhatsAppServidorSelector
+                clinicaId={clinicaId}
+                onServidorChange={handleServidorWhatsappChange} />
+              
                     <section
                 className="rounded-xl border border-teal-200 bg-teal-50 p-4"
                 aria-labelledby="webhook-confirmacoes-title">
@@ -864,32 +872,18 @@ _Digite o número da opção desejada._`);
                           Recebe as respostas do paciente para confirmar ou
                           cancelar consultas. O envio é sempre explícito e só
                           fica disponível depois que a sessão configurada for
-                          confirmada no WAHA.
+                          confirmada no {nomeServidor}.
                         </p>
                       </div>
+                      {/* A URL do webhook fica só no .env.local do servidor */}
                       <div className="mt-4">
-                        <label
-                    htmlFor="whatsapp-webhook-url"
-                    className="mb-1.5 block text-xs font-medium text-teal-950">
-                    
-                          URL do webhook
-                        </label>
-                        <Input
-                    id="whatsapp-webhook-url"
-                    value={webhookUrl}
-                    onChange={(event) =>
-                    setWebhookUrl(event.target.value)
-                    }
-                    placeholder={`${API_BASE_URL}/api/webhook/whatsapp`}
-                    className="bg-white text-sm font-mono" />
-                  
                         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <p className="text-xs text-teal-700">
                             {hasUnsavedSessionChange ?
                       'Salve e verifique o novo nome da sessão antes de enviar o webhook.' :
                       configuredSessionExists ?
-                      'Use este botão para enviar a URL ao WAHA agora, sem precisar reconectar a sessão.' :
-                      'O envio será liberado após confirmar que a sessão configurada existe no WAHA.'}
+                      `Use este botão para ativar o webhook no ${nomeServidor} agora, sem precisar reconectar a sessão.` :
+                      `O envio será liberado após confirmar que a sessão configurada existe no ${nomeServidor}.`}
                           </p>
                           <Button
                       type="button"
@@ -898,7 +892,6 @@ _Digite o número da opção desejada._`);
                       isApplyingWebhook ||
                       !configuredSessionExists ||
                       hasUnsavedSessionChange ||
-                      !webhookUrl.trim() ||
                       !localServerUrl.trim() ||
                       !localSessionName.trim()
                       }
@@ -910,13 +903,15 @@ _Digite o número da opção desejada._`);
                       <MessageSquareIcon className="mr-2 h-4 w-4" />
                       }
                             {isApplyingWebhook ?
-                      'Enviando ao WAHA...' :
-                      'Ativar e enviar ao WAHA'}
+                      `Enviando ao ${nomeServidor}...` :
+                      `Ativar e enviar ao ${nomeServidor}`}
                           </Button>
                         </div>
                       </div>
                     </section>
                     <WhatsAppSessionManager
+                key={servidorWhatsapp}
+                nomeServidor={nomeServidor}
                 serverUrl={localServerUrl}
                 sessionName={localSessionName}
                 savedServerUrl={savedServerUrl}

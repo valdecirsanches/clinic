@@ -2,6 +2,16 @@
   "_leia": "FONTE ÚNICA da versão do sistema. A cada entrega, acrescente uma versão NO TOPO, com o que mudou escrito para o usuário da clínica. O número exibido (config/version.ts), o aviso de versão nova e a janela 'O que mudou' saem daqui.",
   "versoes": [
     {
+      "versao": "2.6.0",
+      "data": "2026-11-24",
+      "itens": [
+        "O WhatsApp da clínica agora pode usar a Evolution API como alternativa ao WAHA: em Configurações › Conexão WhatsApp, o administrador escolhe o \"Servidor do WhatsApp\".",
+        "Na Evolution API tudo funciona igual: lembretes, confirmações, menu de ajuda, documentos e as respostas dos pacientes pelo webhook.",
+        "Ao trocar de servidor é preciso ler o QR Code de novo; a configuração do WAHA fica guardada para voltar a ela.",
+        "O endereço do servidor do WhatsApp e a URL do webhook agora ficam na configuração do servidor e não aparecem mais na tela."
+      ]
+    },
+    {
       "versao": "2.5.2",
       "data": "2026-11-23",
       "itens": [

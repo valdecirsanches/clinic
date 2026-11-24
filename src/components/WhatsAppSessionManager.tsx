@@ -42,7 +42,8 @@ interface WhatsAppSessionManagerProps {
   sessionName: string;
   savedServerUrl?: string;
   savedSessionName?: string;
-  onServerUrlChange: (url: string) => void;
+  /** não usado: o endereço do servidor vem do .env.local */
+  onServerUrlChange?: (url: string) => void;
   onSessionNameChange: (name: string) => void;
   onSessionExistenceChange?: (exists: boolean) => void;
   isSuperAdmin?: boolean;
@@ -50,6 +51,8 @@ interface WhatsAppSessionManagerProps {
   clinicaId?: string;
   /** Depois de criar a sessão: a tela grava o novo servidor/nome */
   onSessaoCriada?: (dados: {serverUrl: string;sessionName: string;canalAtivo: boolean;}) => Promise<void> | void;
+  /** Servidor em uso pela clínica, só para os textos ("WAHA" ou "Evolution API") */
+  nomeServidor?: string;
 }
 
 export function WhatsAppSessionManager({
@@ -57,12 +60,12 @@ export function WhatsAppSessionManager({
   sessionName,
   savedServerUrl = '',
   savedSessionName = '',
-  onServerUrlChange,
   onSessionNameChange,
   onSessionExistenceChange,
   isSuperAdmin = false,
   clinicaId,
-  onSessaoCriada
+  onSessaoCriada,
+  nomeServidor = 'WAHA'
 }: WhatsAppSessionManagerProps) {
   const serverUrl = rawServerUrl.trim().replace(/\/+$/, '');
   const configuredServerUrl = savedServerUrl.trim().replace(/\/+$/, '');
@@ -151,7 +154,7 @@ export function WhatsAppSessionManager({
         message: hasUnsavedSessionChange ?
         'A conexão foi alterada. Salve a configuração antes de verificar a nova sessão.' :
         isSuperAdmin ?
-        'Informe e salve o servidor WAHA e o nome da sessão, ou use "Conectar o WhatsApp desta clínica".' :
+        'Informe e salve o nome da sessão, ou use "Conectar o WhatsApp desta clínica".' :
         clinicaId ?
         'O WhatsApp desta clínica ainda não foi conectado.' :
         'O WhatsApp desta clínica ainda não foi conectado. Peça ao administrador da clínica para conectar em Configurações › Conexão WhatsApp.'
@@ -173,7 +176,7 @@ export function WhatsAppSessionManager({
       );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || `Não foi possível consultar o WAHA (${response.status}).`);
+        throw new Error(data.error || `Não foi possível consultar o ${nomeServidor} (${response.status}).`);
       }
 
       const rawStatus = String(data.status || '').toUpperCase();
@@ -181,7 +184,7 @@ export function WhatsAppSessionManager({
         const nextSnapshot: SessionSnapshot = {
           status: 'not_found',
           sessionExists: false,
-          message: `A sessão “${configuredSessionName}” não existe no WAHA. Nenhuma sessão será criada automaticamente.`
+          message: `A sessão “${configuredSessionName}” não existe no ${nomeServidor}. Nenhuma sessão será criada automaticamente.`
         };
         applySnapshot(nextSnapshot, configuredSessionName);
         return nextSnapshot;
@@ -190,7 +193,7 @@ export function WhatsAppSessionManager({
         const nextSnapshot: SessionSnapshot = {
           status: 'error',
           sessionExists: false,
-          message: data.error || 'Não foi possível confirmar a sessão no WAHA.'
+          message: data.error || `Não foi possível confirmar a sessão no ${nomeServidor}.`
         };
         applySnapshot(nextSnapshot, configuredSessionName);
         return nextSnapshot;
@@ -219,7 +222,7 @@ export function WhatsAppSessionManager({
       return nextSnapshot;
     } catch (error) {
       const message =
-      error instanceof Error ? error.message : 'Não foi possível consultar o WAHA.';
+      error instanceof Error ? error.message : `Não foi possível consultar o ${nomeServidor}.`;
       const nextSnapshot: SessionSnapshot = {
         status: 'error',
         sessionExists: false,
@@ -232,6 +235,7 @@ export function WhatsAppSessionManager({
   applySnapshot,
   configuredSessionName,
   hasUnsavedSessionChange,
+  nomeServidor,
   serverUrl,
   sessionName]
   );
@@ -449,7 +453,7 @@ export function WhatsAppSessionManager({
                   Sessão WhatsApp
                 </h3>
                 <p className="mt-0.5 text-sm text-gray-500">
-                  Consulte e conecte somente a sessão já existente no WAHA.
+                  Consulte e conecte somente a sessão já existente no {nomeServidor}.
                 </p>
               </div>
             </div>
@@ -473,21 +477,9 @@ export function WhatsAppSessionManager({
         </div>
 
         <div className="space-y-4 p-5">
+          {/* O endereço do servidor (WAHA_URL / EVOLUTION_URL) fica só no .env.local do servidor */}
           {isSuperAdmin &&
           <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="waha-server-url" className="mb-1.5 block text-xs font-medium text-gray-700">
-                  URL da API WAHA
-                </label>
-                <Input
-                id="waha-server-url"
-                value={rawServerUrl}
-                onChange={(event) => onServerUrlChange(event.target.value)}
-                onBlur={(event) => onServerUrlChange(event.target.value.replace(/\/+$/, ''))}
-                placeholder="https://whatsapp.x-star.com.br"
-                className="text-sm" />
-              
-              </div>
               <div>
                 <label htmlFor="waha-session-name" className="mb-1.5 block text-xs font-medium text-gray-700">
                   Nome da sessão
@@ -522,7 +514,7 @@ export function WhatsAppSessionManager({
               <div>
                 <p className="text-sm font-semibold text-amber-950">Alteração ainda não salva</p>
                 <p className="mt-1 text-sm text-amber-800">
-                  Salve as configurações para usar a nova conexão e então verifique se a sessão “{sessionName.trim() || 'sem nome'}” já existe no WAHA. Nenhuma sessão será interrompida ou criada nesta tela.
+                  Salve as configurações para usar a nova conexão e então verifique se a sessão “{sessionName.trim() || 'sem nome'}” já existe no {nomeServidor}. Nenhuma sessão será interrompida ou criada nesta tela.
                 </p>
               </div>
             </div>
@@ -562,7 +554,7 @@ export function WhatsAppSessionManager({
                 <p className="text-sm font-semibold text-red-900">Nenhuma sessão associada</p>
                 <p className="mt-1 text-sm leading-relaxed text-red-700">{snapshot.message}</p>
                 <p className="mt-2 text-xs text-red-700">
-                  Crie ou associe a sessão no ambiente WAHA e depois use “Verificar sessão”. Por segurança, conectar, recuperar e configurar webhook permanecem bloqueados.
+                  Crie ou associe a sessão no {nomeServidor} e depois use “Verificar sessão”. Por segurança, conectar, recuperar e configurar webhook permanecem bloqueados.
                 </p>
               </div>
             </div>
@@ -584,7 +576,7 @@ export function WhatsAppSessionManager({
 
           {snapshot.sessionExists && !hasUnsavedSessionChange &&
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Sessão verificada no WAHA</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Sessão verificada no {nomeServidor}</p>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                 <code className="break-all text-sm font-semibold text-gray-900">{configuredSessionName}</code>
                 <span className="text-sm text-gray-500">• {statusPresentation.description}</span>
@@ -770,16 +762,16 @@ function getStatusPresentation(status: SessionStatus): {
     case 'waiting_scan':
       return { label: 'Aguardando QR', description: 'Escaneie o QR Code para concluir', icon: 'warning', className: 'bg-amber-100 text-amber-800' };
     case 'starting':
-      return { label: 'Iniciando', description: 'O WAHA está preparando a sessão', icon: 'loading', className: 'bg-blue-100 text-blue-800' };
+      return { label: 'Iniciando', description: 'O servidor está preparando a sessão', icon: 'loading', className: 'bg-blue-100 text-blue-800' };
     case 'not_found':
-      return { label: 'Sessão não encontrada', description: 'Não há sessão associada no WAHA', icon: 'offline', className: 'bg-red-100 text-red-800' };
+      return { label: 'Sessão não encontrada', description: 'Não há sessão associada no servidor', icon: 'offline', className: 'bg-red-100 text-red-800' };
     case 'not_configured':
       return { label: 'Não configurada', description: 'Salve uma configuração para consultar', icon: 'offline', className: 'bg-gray-100 text-gray-700' };
     case 'error':
-      return { label: 'Não foi possível verificar', description: 'Revise o acesso ao WAHA', icon: 'offline', className: 'bg-red-100 text-red-800' };
+      return { label: 'Não foi possível verificar', description: 'Revise o acesso ao servidor do WhatsApp', icon: 'offline', className: 'bg-red-100 text-red-800' };
     case 'stopped':
       return { label: 'Desconectada', description: 'A sessão existe e pode ser conectada', icon: 'offline', className: 'bg-gray-100 text-gray-700' };
     default:
-      return { label: 'Verificando', description: 'Consultando o WAHA', icon: 'loading', className: 'bg-gray-100 text-gray-700' };
+      return { label: 'Verificando', description: 'Consultando o servidor', icon: 'loading', className: 'bg-gray-100 text-gray-700' };
   }
 }

@@ -26,6 +26,37 @@ No primeiro início com banco vazio, o servidor cria só o super administrador
 - API: `node src/server/start-server.js` com PM2/systemd, atrás de HTTPS.
 - Variáveis em `src/.env.example` (banco, autenticação, links assinados de arquivos).
 
+## WhatsApp: WAHA ou Evolution API
+
+Cada clínica usa o WAHA (padrão) ou a Evolution API. Quem escolhe é o administrador da
+clínica ou o super administrador, em Configurações › Conexão WhatsApp › "Servidor do
+WhatsApp" (`GET/POST /api/whatsapp/servidor`). A escolha fica em
+`whatsapp_config.servidorWhatsapp` e o endereço do WAHA da clínica continua guardado para
+voltar a ele. O servidor da Evolution vem do `.env.local` (`EVOLUTION_URL`,
+`EVOLUTION_API_KEY` e, opcional, `EVOLUTION_WEBHOOK_URL`) e a instância tem o nome da sessão
+da clínica.
+
+O sistema continua "falando WAHA": o fetch do WhatsApp (`whatsapp-shared.js`) passa por
+`server/services/evolution.js`, que manda para a Evolution só os pedidos de sessões de
+clínicas que a escolheram e devolve as respostas no formato do WAHA (sessão, QR Code,
+envios, número com WhatsApp, foto, LID e mídia). Clínicas no WAHA não mudam nada.
+
+Endereços no `.env.local`, fora da tela: `WAHA_URL` (o endereço do WAHA para todas as
+clínicas; o gravado na clínica só vale sem ele) e as URLs do webhook `WAHA_WEBHOOK_URL` /
+`EVOLUTION_WEBHOOK_URL` (sem elas: a gravada na clínica ou `https://<esta API>/api/webhook/whatsapp`).
+Os servidores próprios do código de acesso (`WAHA_2FA_SERVER_URL`, `CADASTRO_WAHA_SERVER_URL`)
+continuam como estão.
+
+Webhook (mesmo critério do Inno): ao criar a instância ou "Ativar e enviar", o webhook é
+gravado na Evolution com `MESSAGES_UPSERT` e `CONNECTION_UPDATE`, mídia em base64 e
+"Webhook by Events" desligado. O evento da Evolution vira o evento `message` do WAHA logo
+na entrada de `/api/webhook/whatsapp`; com "Webhook by Events" ligado, o endereço
+`/api/webhook/whatsapp/<evento>` (inclusive com barra dupla) também é aceito. Contato
+`@lid`: o telefone é procurado nas chaves do evento (remoteJidAlt, senderPn,
+participantPn...) e, se não vier, nos contatos da instância.
+
+Teste: `src/tests/services/evolution.test.ts` (Evolution falsa).
+
 ## Testes
 
 `npm test` (vitest, em `src/tests`).

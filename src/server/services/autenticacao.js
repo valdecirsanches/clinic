@@ -234,6 +234,7 @@ const PUBLICAS = [
 [['GET'], /^\/downloads\/(arquivo\/[^/]+|listar)\/?$/],
 // Webhooks de serviços externos (WAHA, Meta, Mercado Pago, Itaú)
 [['GET', 'POST'], /^\/webhook\/whatsapp\/?$/],
+[['POST'], /^\/webhook\/whatsapp\/+[\w.-]+\/?$/], // Evolution API com "Webhook by Events"
 [['POST'], /^\/whatsapp\/webhook\/?$/],
 [['GET', 'POST'], /^\/whatsapp-meta\/webhook\/?$/],
 [['GET'], /^\/whatsapp-meta\/receber-diag\/?$/],
