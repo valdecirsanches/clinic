@@ -436,3 +436,64 @@ describe('códigos da plataforma (duas etapas e cadastro) pela Evolution', () =>
     expect((await evo.enviarTextoEvolution('clinica_evo', '5511', 'x', falso.fetchFalso)).error).toMatch(/EVOLUTION_URL/);
   });
 });
+
+describe('WAHA com dois motores: WEBJS e GOWS', () => {
+  beforeEach(() => {
+    process.env.WAHA_URL = 'https://whatsapp2.exemplo.com';
+    process.env.WAHA_GOWS_URL = 'https://whatsapp.exemplo.com';
+    evo.definirResolvedor(async (s: string) => (s === 'clinica_gows' ? 'waha_gows' : s === 'clinica_evo' ? 'evolution' : 'waha'));
+    evo.limparCache();
+  });
+  afterAll(() => { delete process.env.WAHA_URL; delete process.env.WAHA_GOWS_URL; delete process.env.WAHA_GOWS_API_KEY; });
+
+  it('normaliza os três valores (o antigo "waha" continua sendo o WEBJS)', () => {
+    expect(evo.normalizaServidor('waha')).toBe('waha');
+    expect(evo.normalizaServidor('waha_gows')).toBe('waha_gows');
+    expect(evo.normalizaServidor('GOWS')).toBe('waha_gows');
+    expect(evo.normalizaServidor('evolution')).toBe('evolution');
+    expect(evo.normalizaServidor('')).toBe('waha');
+  });
+
+  it('cada clínica vai para o WAHA do seu motor', async () => {
+    await fetchWa('https://antigo.exemplo.com/api/sendText', post({ session: 'clinica_gows', chatId: '5511@c.us', text: 'oi' }));
+    await fetchWa('https://antigo.exemplo.com/api/sendText', post({ session: 'clinica_webjs', chatId: '5511@c.us', text: 'oi' }));
+    // mesmo vindo com o endereço do outro motor, vai para o da clínica
+    await fetchWa('https://whatsapp2.exemplo.com/api/sessions/clinica_gows', { method: 'GET' });
+    expect(falso.chamadas.map((c) => c.url)).toEqual([
+    'https://whatsapp.exemplo.com/api/sendText',
+    'https://whatsapp2.exemplo.com/api/sendText',
+    'https://whatsapp.exemplo.com/api/sessions/clinica_gows']);
+  });
+
+  it('listagem sem sessão num WAHA configurado fica onde está', async () => {
+    await fetchWa('https://whatsapp.exemplo.com/api/sessions?all=true');
+    await fetchWa('https://whatsapp2.exemplo.com/api/sessions?all=true');
+    await fetchWa('https://antigo.exemplo.com/api/sessions?all=true');
+    expect(falso.chamadas.map((c) => c.url)).toEqual([
+    'https://whatsapp.exemplo.com/api/sessions?all=true',
+    'https://whatsapp2.exemplo.com/api/sessions?all=true',
+    'https://whatsapp2.exemplo.com/api/sessions?all=true']);
+  });
+
+  it('WAHA_GOWS_API_KEY troca a chave só nos pedidos do GOWS', async () => {
+    process.env.WAHA_GOWS_API_KEY = 'chave-gows';
+    const h = { 'Content-Type': 'application/json', 'X-Api-Key': 'chave-webjs' };
+    await fetchWa('https://x/api/sendText', { method: 'POST', headers: h, body: JSON.stringify({ session: 'clinica_gows', chatId: '1@c.us', text: 'a' }) });
+    await fetchWa('https://x/api/sendText', { method: 'POST', headers: h, body: JSON.stringify({ session: 'clinica_webjs', chatId: '1@c.us', text: 'a' }) });
+    expect(falso.chamadas[0].headers['X-Api-Key']).toBe('chave-gows');
+    expect(falso.chamadas[1].headers['X-Api-Key']).toBe('chave-webjs');
+  });
+
+  it('servidorDisponivel: GOWS só com WAHA_GOWS_URL; webhook do GOWS cai no do WAHA', () => {
+    expect(evo.servidorDisponivel('waha_gows')).toBe(true);
+    delete process.env.WAHA_GOWS_URL;
+    expect(evo.servidorDisponivel('waha_gows')).toBe(false);
+    expect(evo.servidorDisponivel('waha')).toBe(true);
+    process.env.WAHA_WEBHOOK_URL = 'https://api/w';
+    expect(evo.webhookUrlDoEnv('waha_gows')).toBe('https://api/w');
+    process.env.WAHA_GOWS_WEBHOOK_URL = 'https://api/gows';
+    expect(evo.webhookUrlDoEnv('waha_gows')).toBe('https://api/gows');
+    delete process.env.WAHA_WEBHOOK_URL;
+    delete process.env.WAHA_GOWS_WEBHOOK_URL;
+  });
+});

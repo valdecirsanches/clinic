@@ -13,11 +13,17 @@
  * O servidor vem do .env (o mesmo para todas as clínicas):
  *   EVOLUTION_URL, EVOLUTION_API_KEY e, opcional, EVOLUTION_WEBHOOK_URL
  * A instância na Evolution tem o nome da sessão da clínica (whatsapp_config.sessionName).
- * A escolha fica em whatsapp_config.servidorWhatsapp ('waha' | 'evolution').
+ * A escolha fica em whatsapp_config.servidorWhatsapp:
+ *   'waha'       WAHA com o motor WEBJS (WAHA_URL / WAHA_WEBJS_URL) — o padrão
+ *   'waha_gows'  WAHA com o motor GOWS (WAHA_GOWS_URL; chave WAHA_GOWS_API_KEY ou WAHA_API_KEY)
+ *   'evolution'  Evolution API (EVOLUTION_URL / EVOLUTION_API_KEY)
  */
 
 const EVOLUTION = 'evolution';
-const WAHA = 'waha';
+const WAHA = 'waha'; // WAHA WEBJS (valor antigo, mantido)
+const WAHA_GOWS = 'waha_gows';
+const SERVIDORES = [WAHA, WAHA_GOWS, EVOLUTION];
+const NOMES_SERVIDOR = { [WAHA]: 'WAHA WEBJS', [WAHA_GOWS]: 'WAHA GOWS', [EVOLUTION]: 'Evolution API' };
 
 const limpa = (v) => String(v || '').trim().replace(/^['"]|['"]$/g, '');
 const ehObj = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
@@ -32,11 +38,25 @@ const disponivel = () => Boolean(servidor().url);
 const comProtocolo = (u) => (u && !/^https?:\/\//i.test(u) ? `https://${u}` : u);
 
 /**
- * Endereço do WAHA no .env.local (WAHA_URL). Com ele, vale para todas as
- * clínicas e o endereço gravado na clínica é ignorado (como no Inno); sem ele,
- * vale o gravado na clínica.
+ * Endereço do WAHA no .env.local, conforme o motor escolhido pela clínica:
+ *   WEBJS: WAHA_WEBJS_URL ou WAHA_URL      GOWS: WAHA_GOWS_URL
+ * Com ele, o endereço gravado na clínica é ignorado (como no Inno); sem ele, vale o gravado.
  */
-const wahaUrlDoEnv = () => comProtocolo(limpa(process.env.WAHA_URL).replace(/\/+$/, ''));
+function wahaUrlDoEnv(servidorEscolhido = WAHA) {
+  const bruto = servidorEscolhido === WAHA_GOWS ?
+    limpa(process.env.WAHA_GOWS_URL) :
+    limpa(process.env.WAHA_WEBJS_URL || process.env.WAHA_URL);
+  return comProtocolo(bruto.replace(/\/+$/, ''));
+}
+/** chave própria do WAHA GOWS (senão vale WAHA_API_KEY, a de sempre) */
+const chaveWahaDoEnv = (servidorEscolhido) => (servidorEscolhido === WAHA_GOWS ? limpa(process.env.WAHA_GOWS_API_KEY) : '');
+/** a opção pode ser escolhida (o endereço dela está no .env.local) */
+function servidorDisponivel(servidorEscolhido) {
+  if (servidorEscolhido === EVOLUTION) return disponivel();
+  if (servidorEscolhido === WAHA_GOWS) return Boolean(wahaUrlDoEnv(WAHA_GOWS));
+  return true; // WEBJS: o padrão de sempre (WAHA_URL ou o endereço gravado)
+}
+const ehWaha = (servidorEscolhido) => servidorEscolhido !== EVOLUTION;
 
 /**
  * URL do webhook (para onde o servidor do WhatsApp manda as respostas), do
@@ -46,6 +66,8 @@ const wahaUrlDoEnv = () => comProtocolo(limpa(process.env.WAHA_URL).replace(/\/+
 function webhookUrlDoEnv(servidorEscolhido = WAHA) {
   const nomes = servidorEscolhido === EVOLUTION ?
     ['EVOLUTION_WEBHOOK_URL', 'WHATSAPP_WEBHOOK_URL', 'WAHA_WEBHOOK_URL'] :
+    servidorEscolhido === WAHA_GOWS ?
+    ['WAHA_GOWS_WEBHOOK_URL', 'WAHA_WEBHOOK_URL', 'WHATSAPP_WEBHOOK_URL'] :
     ['WAHA_WEBHOOK_URL', 'WHATSAPP_WEBHOOK_URL'];
   for (const n of nomes) {
     const v = limpa(process.env[n]);
@@ -54,7 +76,12 @@ function webhookUrlDoEnv(servidorEscolhido = WAHA) {
   return '';
 }
 const webhookDoEnv = () => webhookUrlDoEnv(EVOLUTION);
-const normalizaServidor = (v) => (String(v || '').toLowerCase() === EVOLUTION ? EVOLUTION : WAHA);
+function normalizaServidor(v) {
+  const t = String(v || '').toLowerCase().trim();
+  if (t === EVOLUTION) return EVOLUTION;
+  if (t === WAHA_GOWS || t === 'gows') return WAHA_GOWS;
+  return WAHA;
+}
 
 // ------------------------------------------------------------ sessão → servidor
 // O resolvedor (whatsapp-shared.js) diz qual servidor a clínica da sessão usa.
@@ -209,7 +236,7 @@ function interpretar(url, init = {}) {
 // --------------------------------------------------------------- Evolution
 const TEMPO_PADRAO_MS = 15000; // consultas (como no Fácil)
 const TEMPO_ENVIO_MS = 60000; // envios e mídia
-const TEMPO_WAHA_MS = 20000; // consultas ao WAHA sem limite próprio
+const TEMPO_WAHA_MS = 30000; // consultas ao WAHA sem limite próprio
 const MAPA_STATUS = { open: 'WORKING', connecting: 'SCAN_QR_CODE', close: 'STOPPED', closed: 'STOPPED', refused: 'FAILED' };
 const EVENTOS_WAHA = ['message', 'message.any', 'session.status'];
 
@@ -572,17 +599,26 @@ class Evolution {
 const WAHA_SEM_SESSAO = /^\/api\/(sessions|health|server\/status|version)\/?$|^\/health\/?$/;
 
 /** pedido do WAHA → mesmo caminho no endereço do .env.local (WAHA_URL), se houver */
-function paraWahaDoEnv(url, pedido) {
-  const env = wahaUrlDoEnv();
-  if (!env) return url;
+const hostDe = (v) => { try { return new URL(comProtocolo(limpa(v))).host; } catch (e) { return ''; } };
+
+/**
+ * Pedido do WAHA → mesmo caminho no endereço do .env.local do motor da clínica.
+ * Com sessão (pedido), vale o motor escolhido para ela; sem sessão (listagem,
+ * saúde), um endereço que já é de um WAHA configurado fica como está.
+ */
+function paraWahaDoEnv(url, pedido, servidorEscolhido = WAHA) {
   let u;
   try { u = new URL(url); } catch (e) { return url; }
   if (!pedido && !WAHA_SEM_SESSAO.test(u.pathname)) return url; // não é do WAHA
   // servidores próprios do código de acesso / cadastro, quando configurados, ficam como estão
-  const proprios = ['WAHA_2FA_SERVER_URL', 'CADASTRO_WAHA_SERVER_URL']
-    .map((n) => { try { return new URL(comProtocolo(limpa(process.env[n]))).host; } catch (e) { return ''; } })
-    .filter(Boolean);
+  const proprios = ['WAHA_2FA_SERVER_URL', 'CADASTRO_WAHA_SERVER_URL'].map((n) => hostDe(process.env[n])).filter(Boolean);
   if (proprios.includes(u.host)) return url;
+  if (!pedido) {
+    const conhecidos = [wahaUrlDoEnv(WAHA), wahaUrlDoEnv(WAHA_GOWS)].map(hostDe).filter(Boolean);
+    if (conhecidos.includes(u.host)) return url;
+  }
+  const env = wahaUrlDoEnv(servidorEscolhido);
+  if (!env) return url;
   const i = u.pathname.indexOf('/api/');
   const caminho = i >= 0 ? u.pathname.slice(i) : u.pathname;
   const destino = `${env}${caminho}${u.search}`;
@@ -593,13 +629,20 @@ function comEvolution(fetchBase) {
   async function fetchWhatsApp(url, init = {}) {
     const texto = typeof url === 'string' ? url : (url && url.url) || String(url);
     const pedido = interpretar(texto, init || {});
-    if (pedido && disponivel() && (await servidorDaSessao(pedido.sessao)) === EVOLUTION) {
+    const servidorEscolhido = pedido ? await servidorDaSessao(pedido.sessao) : WAHA;
+    if (pedido && disponivel() && servidorEscolhido === EVOLUTION) {
       const r = await new Evolution(pedido.sessao, fetchBase).executar(pedido, init || {});
       r.url = texto;
       return r;
     }
-    // WAHA: o endereço vem do .env.local (WAHA_URL) quando ele existe
-    const destino = paraWahaDoEnv(texto, pedido);
+    // WAHA: o endereço vem do .env.local do motor da clínica (WEBJS ou GOWS)
+    const destino = paraWahaDoEnv(texto, pedido, servidorEscolhido);
+    const chaveGows = chaveWahaDoEnv(servidorEscolhido);
+    if (chaveGows && init && init.headers) {
+      const h = { ...init.headers };
+      for (const k of Object.keys(h)) if (k.toLowerCase() === 'x-api-key') delete h[k];
+      init = { ...init, headers: { ...h, 'X-Api-Key': chaveGows } };
+    }
     const ehWaha = Boolean(pedido) || destino !== texto || (() => {
       try { return WAHA_SEM_SESSAO.test(new URL(texto).pathname); } catch (e) { return false; }
     })();
@@ -771,7 +814,8 @@ async function enviarTextoEvolution(instancia, numero, texto, fetchBase = global
 
 module.exports = {
   servidorDosCodigos, enviarTextoEvolution,
-  EVOLUTION, WAHA, servidor, disponivel, normalizaServidor, wahaUrlDoEnv, webhookUrlDoEnv, paraWahaDoEnv,
+  EVOLUTION, WAHA, WAHA_GOWS, SERVIDORES, NOMES_SERVIDOR, servidorDisponivel, ehWaha, chaveWahaDoEnv,
+  servidor, disponivel, normalizaServidor, wahaUrlDoEnv, webhookUrlDoEnv, paraWahaDoEnv,
   definirResolvedor, lembrarSessao, limparCache, servidorDaSessao,
   interpretar, comEvolution, Evolution, RespostaLocal,
   numeroEvolution, jidParaWaha,

@@ -26,7 +26,19 @@ No primeiro início com banco vazio, o servidor cria só o super administrador
 - API: `node src/server/start-server.js` com PM2/systemd, atrás de HTTPS.
 - Variáveis em `src/.env.example` (banco, autenticação, links assinados de arquivos).
 
-## WhatsApp: WAHA ou Evolution API
+## WhatsApp: WAHA (WEBJS ou GOWS) ou Evolution API
+
+Três opções por clínica (`whatsapp_config.servidorWhatsapp`):
+- `waha` — **WAHA WEBJS** (padrão): `WAHA_URL` ou `WAHA_WEBJS_URL`. O WhatsApp Web num navegador
+  dentro do servidor; o mais testado e compatível.
+- `waha_gows` — **WAHA GOWS**: `WAHA_GOWS_URL` (chave `WAHA_GOWS_API_KEY` ou `WAHA_API_KEY`).
+  Conecta direto, sem navegador: mais leve e rápido.
+- `evolution` — **Evolution API**: reserva quando o WAHA estiver com problemas.
+
+Ao trocar, a sessão é preparada no servidor novo (criada se não existir, com o mesmo nome);
+no GOWS e na Evolution, a tela também cria sozinha uma sessão que não existe. No WEBJS vale a
+regra de antes (não cria automaticamente pela verificação de status).
+
 
 Cada clínica usa o WAHA (padrão) ou a Evolution API. Quem escolhe é o administrador da
 clínica ou o super administrador, em Configurações › Conexão WhatsApp › "Servidor do

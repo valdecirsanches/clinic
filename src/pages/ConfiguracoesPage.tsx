@@ -774,6 +774,7 @@ _Digite o número da opção desejada._`);
                     <WhatsAppSessionManager
                 key={servidorWhatsapp}
                 nomeServidor={nomeServidor}
+                criarAutomaticamente={servidorWhatsapp !== 'waha'}
                 serverUrl={localServerUrl}
                 sessionName={localSessionName}
                 savedServerUrl={savedServerUrl}

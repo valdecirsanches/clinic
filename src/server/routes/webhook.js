@@ -233,7 +233,8 @@ router.post('/webhook', async (req, res) => {
             const clinicaInfo = await buscarClinicaPorSession(sessionId);
             if (clinicaInfo && clinicaInfo.config) {
               const cfg = clinicaInfo.config;
-              const srvUrl = evolution.wahaUrlDoEnv() || cleanUrl(cfg.serverUrl || cfg.wahaUrl || '');
+              const servidorCfg = evolution.normalizaServidor(cfg.servidorWhatsapp);
+              const srvUrl = evolution.wahaUrlDoEnv(servidorCfg === evolution.EVOLUTION ? evolution.WAHA : servidorCfg) || cleanUrl(cfg.serverUrl || cfg.wahaUrl || '');
               const wahaApiKey = getWahaApiKey();
 
               if (srvUrl) {
@@ -254,7 +255,7 @@ router.post('/webhook', async (req, res) => {
                     const host = req.get('host');
                     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
                     // URL do .env.local (WAHA_WEBHOOK_URL / EVOLUTION_WEBHOOK_URL) ou a desta API
-                    const webhookUrl = evolution.webhookUrlDoEnv(body.evolution ? evolution.EVOLUTION : evolution.WAHA) || (
+                    const webhookUrl = evolution.webhookUrlDoEnv(servidorCfg) || (
                     host && !host.includes('localhost') ?
                     `https://${host}/api/webhook/whatsapp` :
                     `${protocol}://${host}/api/webhook/whatsapp`);
@@ -402,7 +403,8 @@ router.post('/webhook', async (req, res) => {
 
     const { clinicaId, config } = clinicaInfo;
     // ⭐⭐⭐ FIX v9.1: LIMPA serverUrl do banco (pode ter barra final que causa 401) ⭐⭐⭐
-    const serverUrl = evolution.wahaUrlDoEnv() || cleanUrl(config.serverUrl);
+    const servidorClinica = evolution.normalizaServidor(config.servidorWhatsapp);
+    const serverUrl = evolution.wahaUrlDoEnv(servidorClinica === evolution.EVOLUTION ? evolution.WAHA : servidorClinica) || cleanUrl(config.serverUrl);
     const wahaApiKey = getWahaApiKey();
 
     console.log(`📩 Clínica: ${clinicaId}, Sessão: ${sessionId}`);

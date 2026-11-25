@@ -51,8 +51,10 @@ interface WhatsAppSessionManagerProps {
   clinicaId?: string;
   /** Depois de criar a sessão: a tela grava o novo servidor/nome */
   onSessaoCriada?: (dados: {serverUrl: string;sessionName: string;canalAtivo: boolean;}) => Promise<void> | void;
-  /** Servidor em uso pela clínica, só para os textos ("WAHA" ou "Evolution API") */
+  /** Servidor em uso pela clínica, só para os textos ("WAHA WEBJS", "WAHA GOWS" ou "Evolution API") */
   nomeServidor?: string;
+  /** Cria a sessão sozinho quando ela não existe (Evolution API e WAHA GOWS) */
+  criarAutomaticamente?: boolean;
 }
 
 export function WhatsAppSessionManager({
@@ -65,7 +67,8 @@ export function WhatsAppSessionManager({
   isSuperAdmin = false,
   clinicaId,
   onSessaoCriada,
-  nomeServidor = 'WAHA'
+  nomeServidor = 'WAHA',
+  criarAutomaticamente = false
 }: WhatsAppSessionManagerProps) {
   const serverUrl = rawServerUrl.trim().replace(/\/+$/, '');
   const configuredServerUrl = savedServerUrl.trim().replace(/\/+$/, '');
@@ -184,7 +187,9 @@ export function WhatsAppSessionManager({
         const nextSnapshot: SessionSnapshot = {
           status: 'not_found',
           sessionExists: false,
-          message: `A sessão “${configuredSessionName}” não existe no ${nomeServidor}. Nenhuma sessão será criada automaticamente.`
+          message: criarAutomaticamente ?
+          `A sessão “${configuredSessionName}” ainda não existe no ${nomeServidor}: ela é criada automaticamente.` :
+          `A sessão “${configuredSessionName}” não existe no ${nomeServidor}. Nenhuma sessão será criada automaticamente.`
         };
         applySnapshot(nextSnapshot, configuredSessionName);
         return nextSnapshot;
@@ -236,6 +241,7 @@ export function WhatsAppSessionManager({
   configuredSessionName,
   hasUnsavedSessionChange,
   nomeServidor,
+  criarAutomaticamente,
   serverUrl,
   sessionName]
   );
@@ -304,6 +310,17 @@ export function WhatsAppSessionManager({
       setCriando(false);
     }
   };
+
+  // Evolution API / WAHA GOWS: sessão inexistente é criada sozinha (uma vez por tela)
+  const autoCriacaoFeitaRef = useRef(false);
+  useEffect(() => {
+    if (!criarAutomaticamente || !clinicaId || criando || hasUnsavedSessionChange) return;
+    if (snapshot.status !== 'not_found' && snapshot.status !== 'not_configured') return;
+    if (autoCriacaoFeitaRef.current) return;
+    autoCriacaoFeitaRef.current = true;
+    void criarSessaoDaClinica();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [criarAutomaticamente, clinicaId, snapshot.status, hasUnsavedSessionChange]);
 
   const startExistingSession = async () => {
     if (!snapshot.sessionExists || !serverUrl || !configuredSessionName) return;
@@ -547,7 +564,14 @@ export function WhatsAppSessionManager({
             </div>
           }
 
-          {snapshot.status === 'not_found' && isSuperAdmin &&
+          {criarAutomaticamente && criando &&
+          <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4" role="status">
+              <Loader2Icon className="mt-0.5 h-5 w-5 flex-none animate-spin text-emerald-700" />
+              <p className="text-sm text-emerald-900">Criando a sessão no {nomeServidor}… o QR Code aparece em instantes.</p>
+            </div>
+          }
+
+          {snapshot.status === 'not_found' && isSuperAdmin && !(criarAutomaticamente && clinicaId) &&
           <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
               <XCircleIcon className="mt-0.5 h-5 w-5 flex-none text-red-600" />
               <div>

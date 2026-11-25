@@ -2,6 +2,15 @@
   "_leia": "FONTE ÚNICA da versão do sistema. A cada entrega, acrescente uma versão NO TOPO, com o que mudou escrito para o usuário da clínica. O número exibido (config/version.ts), o aviso de versão nova e a janela 'O que mudou' saem daqui.",
   "versoes": [
     {
+      "versao": "2.6.2",
+      "data": "2026-11-24",
+      "itens": [
+        "\"Servidor do WhatsApp\" agora tem três opções: WAHA WEBJS, WAHA GOWS e Evolution API, cada uma com a explicação de quando usar.",
+        "Ao trocar de servidor, a sessão da clínica é criada automaticamente no servidor escolhido; é só ler o QR Code.",
+        "Na Evolution API e no WAHA GOWS, uma sessão que ainda não existe é criada sozinha, sem mensagem de bloqueio."
+      ]
+    },
+    {
       "versao": "2.6.1",
       "data": "2026-11-24",
       "itens": [
