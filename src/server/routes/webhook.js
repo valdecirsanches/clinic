@@ -1197,7 +1197,10 @@ router.post('/webhook', async (req, res) => {
     // O campo menuAjudaAtivo é um TINYINT(1) no banco: 1 = ativo, 0 = bloqueado
     // Controlado pelo toggle "Menu de Ajuda Ativo" na tela de Configurações
     // ⭐ FIX v21.7: Variável já declarada no topo — aqui só reatribui
-    MENU_AJUDA_BLOQUEADO = config ? config.menuAjudaAtivo : false;
+    // ⭐ Correção: antes recebia o próprio menuAjudaAtivo (1 = ativo), o que deixava o
+    // menu BLOQUEADO justamente quando estava ativo. Começa liberado; só a decisão
+    // abaixo (menuAjudaAtivo = 0/false) bloqueia.
+    MENU_AJUDA_BLOQUEADO = false;
     try {
       // 1. Tenta ler do config já carregado (cache de buscarClinicaPorSession)
       let menuAjudaAtivo = config ? config.menuAjudaAtivo : undefined;
