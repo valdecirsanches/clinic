@@ -8,6 +8,7 @@ const router = express.Router();
 
 const shared = require('./whatsapp-shared');
 const evolution = require('../services/evolution');
+const webhookRegistro = require('../services/webhookRegistro');
 const {
   fetch, getClinicaDB, dbGlobal,
   WHATSAPP_MODULE_VERSION, WHATSAPP_MODULE_BUILD,
@@ -2055,24 +2056,36 @@ async function diagnosticarWebhook(clinicaId, req) {
       body: JSON.stringify({ event: 'diagnostico.teste', session: sessao, diagnostico: marca, payload: {} }),
       signal: AbortSignal.timeout(10000)
     });
-    await new Promise((ok) => setTimeout(ok, 800));
-    const chegou = ultimosWebhooks.some((w) => w.diagnostico === marca);
-    alcancou = resp.ok && chegou;
-    detalheAlcance = alcancou ? `${esperada} respondeu e o teste chegou a esta API.` :
-    resp.ok ? `${esperada} respondeu (${resp.status}), mas o teste não chegou a esta API: o endereço aponta para outro servidor ou outra instância.` :
+    // procura o teste no registro compartilhado (vale com vários processos / PM2 cluster)
+    let registro = null;
+    for (let i = 0; i < 8 && !registro; i++) {
+      await new Promise((ok) => setTimeout(ok, 500));
+      registro = await webhookRegistro.buscarDiagnostico(marca);
+    }
+    const texto = await resp.text().catch(() => '');
+    alcancou = resp.ok && Boolean(registro);
+    const ondeChegou = registro ? ` (recebido por ${registro.instancia}${registro.versao ? `, versão ${registro.versao}` : ''})` : '';
+    const versaoVelha = registro && registro.versao && webhookRegistro.VERSAO && registro.versao !== webhookRegistro.VERSAO;
+    if (versaoVelha) alcancou = false;
+    detalheAlcance = versaoVelha ?
+    `${esperada} chegou numa API com a versão ${registro.versao}, diferente desta (${webhookRegistro.VERSAO})${ondeChegou}: há um processo antigo atendendo o domínio. Reinicie todos os processos da API (ex.: pm2 reload all).` :
+    alcancou ? `${esperada} respondeu e o teste chegou à API${ondeChegou}.` :
+    resp.ok ? `${esperada} respondeu (${resp.status}), mas o teste não foi registrado no banco desta API: o domínio aponta para outra instalação (outro servidor, outro banco ou uma versão antiga sem este registro). Confira para onde o Cloudflare/proxy manda ${new URL(esperada).host}.${/<html/i.test(texto) ? ' A resposta foi uma página HTML, não a API.' : ''}` :
     `${esperada} respondeu com erro ${resp.status}. Confira o proxy/Cloudflare e se o caminho termina em /api/webhook/whatsapp.`;
   } catch (e) {
     detalheAlcance = `Não foi possível chamar ${esperada}: ${e.message}. Confira o DNS, o HTTPS e o proxy/Cloudflare.`;
   }
   passo('alcance', alcancou, 'URL pública alcançável', detalheAlcance);
 
-  // 4. o que chegou desta sessão
-  const daSessao = ultimosWebhooks.filter((w) => w.session === sessao && !w.diagnostico);
+  // 4. o que chegou desta sessão (registro compartilhado entre os processos)
+  const daSessao = await webhookRegistro.ultimosDaSessao(sessao, 20);
   const ultimo = daSessao[0];
-  r.recebidos = { total: daSessao.length, ultimo: ultimo ? { quando: ultimo.timestamp, evento: ultimo.event, de: ultimo.from } : null };
+  r.recebidos = { total: daSessao.length, ultimo: ultimo ? { quando: ultimo.recebidoEm, evento: ultimo.evento, de: ultimo.de, instancia: ultimo.instancia } : null };
   passo('recebidos', Boolean(ultimo), 'Mensagens recebidas desta sessão',
-    ultimo ? `${daSessao.length} evento(s) desde que a API iniciou; o último foi "${ultimo.event}" em ${new Date(ultimo.quando || ultimo.timestamp).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.` :
-    'Nenhuma mensagem desta sessão chegou desde que a API iniciou. Mande "oi" para o número da clínica e verifique de novo.');
+    ultimo ? `Último evento "${ultimo.evento}" de ${ultimo.de || '?'} em ${new Date(ultimo.recebidoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} (recebido por ${ultimo.instancia}).` :
+    `Nenhuma mensagem da sessão "${sessao}" foi registrada. Mande "oi" para o número da clínica e verifique de novo.`);
+  r.instancia = webhookRegistro.INSTANCIA;
+  r.versao = webhookRegistro.VERSAO;
   r.ok = r.passos.every((p) => p.ok);
   r.podeCorrigir = atual.success && !certo;
   return r;

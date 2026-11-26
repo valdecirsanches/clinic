@@ -34,6 +34,7 @@ const {
   limparTodosDialogosUsuario
 } = shared;
 const evolution = require('../services/evolution');
+const webhookRegistro = require('../services/webhookRegistro');
 
 // ==================== WEBHOOK - RECEBE MENSAGENS DO WAHA ====================
 
@@ -209,6 +210,8 @@ router.post('/webhook', async (req, res) => {
     payloadKeys: body.payload ? Object.keys(body.payload) : []
   });
   if (ultimosWebhooks.length > MAX_WEBHOOKS_DEBUG) ultimosWebhooks.pop();
+  // registro compartilhado (banco): o diagnóstico vê o que chegou em qualquer processo
+  webhookRegistro.registrar({ session: body.session, sessao: body.session, evento: body.event, de: body.payload?.from || body.from, diagnostico: body.diagnostico });
 
   try {
     const event = body.event || '';

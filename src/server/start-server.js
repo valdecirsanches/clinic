@@ -701,6 +701,9 @@ const responderStatusWebhook = (req, res) => {
   res.json({
     status: 'ok',
     message: 'Webhook EasyClin ativo',
+    // qual processo/versão respondeu (ajuda a achar domínio apontando para outra instalação)
+    instancia: require('./services/webhookRegistro').INSTANCIA,
+    versaoApp: require('./services/webhookRegistro').VERSAO,
     version: '2.43.1',
     endpoints: {
       principal: 'POST /api/webhook/whatsapp',
