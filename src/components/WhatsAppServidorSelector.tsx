@@ -7,7 +7,7 @@
  * se não existir) e basta ler o QR Code.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangleIcon, InfoIcon, Loader2Icon, ServerIcon } from 'lucide-react';
+import { AlertTriangleIcon, CheckCircle2Icon, InfoIcon, Loader2Icon, ServerIcon, StethoscopeIcon, WrenchIcon, XCircleIcon } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 import { Swal } from './ui/SweetAlert';
 
@@ -53,6 +53,20 @@ interface InfoServidor {
   webhookVariavel: string;
 }
 
+interface PassoDiagnostico {
+  id: string;
+  ok: boolean;
+  titulo: string;
+  detalhe: string;
+}
+
+interface Diagnostico {
+  ok: boolean;
+  podeCorrigir: boolean;
+  urlEsperada: string;
+  passos: PassoDiagnostico[];
+}
+
 interface Props {
   clinicaId: string;
   /** chamado ao carregar e depois de cada troca */
@@ -70,6 +84,37 @@ export function WhatsAppServidorSelector({ clinicaId, onServidorChange }: Props)
   const [trocando, setTrocando] = useState<ServidorWhatsapp | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [diagnostico, setDiagnostico] = useState<Diagnostico | null>(null);
+  const [diagnosticando, setDiagnosticando] = useState<'verificar' | 'corrigir' | null>(null);
+  const [erroDiagnostico, setErroDiagnostico] = useState<string | null>(null);
+
+  // Diagnóstico do webhook: mostra por que as respostas dos pacientes chegam (ou não)
+  const diagnosticar = async (acao: 'verificar' | 'corrigir') => {
+    setDiagnosticando(acao);
+    setErroDiagnostico(null);
+    try {
+      const r = acao === 'verificar' ?
+      await fetch(`${API_BASE_URL}/api/whatsapp/webhook-diagnostico?clinicaId=${encodeURIComponent(clinicaId)}`, { signal: AbortSignal.timeout(45000) }) :
+      await fetch(`${API_BASE_URL}/api/whatsapp/webhook-diagnostico/corrigir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicaId }),
+        signal: AbortSignal.timeout(90000)
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Não foi possível fazer o diagnóstico.');
+      setDiagnostico(acao === 'verificar' ? d : d.diagnostico);
+      if (acao === 'corrigir' && !d.success) setErroDiagnostico(d.detalhe || 'O servidor do WhatsApp não aceitou o webhook.');
+    } catch (e) {
+      setErroDiagnostico(
+        e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError') ?
+        'O diagnóstico demorou demais. Tente de novo em instantes.' :
+        e instanceof Error ? e.message : 'Não foi possível fazer o diagnóstico.'
+      );
+    } finally {
+      setDiagnosticando(null);
+    }
+  };
 
   const carregar = useCallback(async () => {
     if (!clinicaId) return;
@@ -250,6 +295,59 @@ export function WhatsAppServidorSelector({ clinicaId, onServidorChange }: Props)
               </p>
             </div>
           }
+
+          <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold text-gray-900">Diagnóstico do webhook</p>
+                <p className="text-xs text-gray-600">
+                  Confere se as respostas dos pacientes (confirmar, cancelar, menu) estão chegando ao sistema.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {diagnostico?.podeCorrigir &&
+                <button
+                  type="button"
+                  onClick={() => diagnosticar('corrigir')}
+                  disabled={Boolean(diagnosticando)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-60">
+                  
+                    {diagnosticando === 'corrigir' ? <Loader2Icon className="h-3.5 w-3.5 animate-spin" /> : <WrenchIcon className="h-3.5 w-3.5" />}
+                    Corrigir agora
+                  </button>
+                }
+                <button
+                  type="button"
+                  onClick={() => diagnosticar('verificar')}
+                  disabled={Boolean(diagnosticando)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60">
+                  
+                  {diagnosticando === 'verificar' ? <Loader2Icon className="h-3.5 w-3.5 animate-spin" /> : <StethoscopeIcon className="h-3.5 w-3.5" />}
+                  {diagnostico ? 'Verificar de novo' : 'Verificar webhook'}
+                </button>
+              </div>
+            </div>
+
+            {diagnostico &&
+            <ul className="mt-3 space-y-2">
+                {diagnostico.passos.map((p) =>
+              <li key={p.id} className="flex items-start gap-2">
+                    {p.ok ?
+                <CheckCircle2Icon className="mt-0.5 h-4 w-4 shrink-0 text-green-600" /> :
+                <XCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />}
+                    <div className="min-w-0">
+                      <p className={`text-xs font-medium ${p.ok ? 'text-gray-900' : 'text-red-700'}`}>{p.titulo}</p>
+                      <p className="break-words text-xs text-gray-600">{p.detalhe}</p>
+                    </div>
+                  </li>
+              )}
+              </ul>
+            }
+            {diagnostico?.ok &&
+            <p className="mt-2 text-xs text-green-700">Tudo certo: as respostas dos pacientes chegam ao sistema.</p>
+            }
+            {erroDiagnostico && <p className="mt-2 text-xs text-red-600" role="alert">{erroDiagnostico}</p>}
+          </div>
 
           {aviso && <p className="mt-3 text-xs text-green-700" role="status">{aviso}</p>}
           {erro && <p className="mt-3 text-xs text-red-600" role="alert">{erro}</p>}

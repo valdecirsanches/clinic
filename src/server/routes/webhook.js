@@ -200,6 +200,8 @@ router.post('/webhook', async (req, res) => {
   ultimosWebhooks.unshift({
     timestamp: new Date().toISOString(),
     event: body.event || 'unknown',
+    session: String(body.session || ''),
+    diagnostico: body.diagnostico || null, // teste do "Diagnóstico do webhook"
     servidor: body.evolution ? 'Evolution API' : 'WAHA',
     from: body.payload?.from || body.from || 'unknown',
     hasMedia: !!(body.payload?.hasMedia || body.payload?.mediaUrl),

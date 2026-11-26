@@ -2003,6 +2003,109 @@ router.post('/servidor', async (req, res) => {
   }
 });
 
+// ==================== DIAGNÓSTICO DO WEBHOOK ====================
+// Mostra ao administrador, passo a passo, por que as respostas dos pacientes
+// chegam (ou não): URL no .env.local, webhook gravado no servidor do WhatsApp,
+// URL pública alcançável e últimas mensagens recebidas desta sessão.
+async function diagnosticarWebhook(clinicaId, req) {
+  const db = getClinicaDB(clinicaId);
+  const config = await dbGetAsync(db, 'SELECT * FROM whatsapp_config WHERE clinicaId = ?', [clinicaId]).catch(() => null);
+  const servidor = evolution.normalizaServidor(config?.servidorWhatsapp);
+  const sessao = String(config?.sessionName || '').trim();
+  const variavel = servidor === evolution.EVOLUTION ? 'EVOLUTION_WEBHOOK_URL' : servidor === evolution.WAHA_GOWS ? 'WAHA_GOWS_WEBHOOK_URL ou WAHA_WEBHOOK_URL' : 'WAHA_WEBHOOK_URL';
+  const doEnv = evolution.webhookUrlDoEnv(servidor);
+  const esperada = doEnv ? normalizarWebhookUrl(doEnv) : webhookPadrao(req, servidor);
+  const serverUrl = (servidor !== evolution.EVOLUTION && evolution.wahaUrlDoEnv(servidor)) || cleanUrl(config?.serverUrl || '') || servidorWahaDaPlataforma();
+  const r = {
+    servidor, nomeServidor: evolution.NOMES_SERVIDOR[servidor], sessao,
+    urlEsperada: esperada, urlNoEnv: Boolean(doEnv), variavel,
+    passos: []
+  };
+  const passo = (id, ok, titulo, detalhe) => r.passos.push({ id, ok, titulo, detalhe });
+
+  passo('env', Boolean(doEnv), 'URL do webhook no .env.local',
+    doEnv ? `${variavel} = ${esperada}` : `Falta ${variavel} no .env.local. Sem ela usamos ${esperada}, que pode não ser o endereço público da API.`);
+
+  if (!sessao) {
+    passo('sessao', false, 'Sessão da clínica', 'A clínica ainda não tem sessão. Conecte o WhatsApp abaixo.');
+    return r;
+  }
+
+  // 2. o que está gravado no servidor do WhatsApp
+  const atual = await buscarWebhooksNoWaha(serverUrl, sessao, getWahaHeaders(getWahaApiKey())).catch((e) => ({ success: false, error: e.message }));
+  const lista = atual.success ? atual.webhooks.map((w) => ({ url: w?.url || '', events: Array.isArray(w?.events) ? w.events : [] })) : [];
+  r.webhooksNoServidor = lista;
+  const certo = lista.some((w) => webhookAtendeConfiguracao(w, esperada));
+  const mesmaUrl = lista.some((w) => normalizarWebhookUrl(w.url) === esperada);
+  passo('servidor', certo, `Webhook gravado no ${r.nomeServidor}`,
+    !atual.success ? `Não foi possível consultar a sessão "${sessao}" no ${r.nomeServidor}${atual.error ? ` (${atual.error})` : ''}.` :
+    certo ? `A sessão "${sessao}" manda as mensagens para ${esperada}.` :
+    !lista.length ? `A sessão "${sessao}" está SEM webhook: o ${r.nomeServidor} não avisa a API quando o paciente responde.` :
+    mesmaUrl ? `A URL está certa, mas faltam eventos de mensagem (precisa de ${WEBHOOK_EVENTS.join(', ')}).` :
+    `A sessão manda as mensagens para outro endereço: ${lista.map((w) => w.url || '(vazio)').join(', ')}.`);
+
+  // 3. a URL pública responde? (chamada de fora para dentro, como o WhatsApp faz)
+  const marca = `diag-${Date.now()}`;
+  let alcancou = false;
+  let detalheAlcance = '';
+  try {
+    const resp = await fetch(esperada, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'diagnostico.teste', session: sessao, diagnostico: marca, payload: {} }),
+      signal: AbortSignal.timeout(10000)
+    });
+    await new Promise((ok) => setTimeout(ok, 800));
+    const chegou = ultimosWebhooks.some((w) => w.diagnostico === marca);
+    alcancou = resp.ok && chegou;
+    detalheAlcance = alcancou ? `${esperada} respondeu e o teste chegou a esta API.` :
+    resp.ok ? `${esperada} respondeu (${resp.status}), mas o teste não chegou a esta API: o endereço aponta para outro servidor ou outra instância.` :
+    `${esperada} respondeu com erro ${resp.status}. Confira o proxy/Cloudflare e se o caminho termina em /api/webhook/whatsapp.`;
+  } catch (e) {
+    detalheAlcance = `Não foi possível chamar ${esperada}: ${e.message}. Confira o DNS, o HTTPS e o proxy/Cloudflare.`;
+  }
+  passo('alcance', alcancou, 'URL pública alcançável', detalheAlcance);
+
+  // 4. o que chegou desta sessão
+  const daSessao = ultimosWebhooks.filter((w) => w.session === sessao && !w.diagnostico);
+  const ultimo = daSessao[0];
+  r.recebidos = { total: daSessao.length, ultimo: ultimo ? { quando: ultimo.timestamp, evento: ultimo.event, de: ultimo.from } : null };
+  passo('recebidos', Boolean(ultimo), 'Mensagens recebidas desta sessão',
+    ultimo ? `${daSessao.length} evento(s) desde que a API iniciou; o último foi "${ultimo.event}" em ${new Date(ultimo.quando || ultimo.timestamp).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.` :
+    'Nenhuma mensagem desta sessão chegou desde que a API iniciou. Mande "oi" para o número da clínica e verifique de novo.');
+  r.ok = r.passos.every((p) => p.ok);
+  r.podeCorrigir = atual.success && !certo;
+  return r;
+}
+
+router.get('/webhook-diagnostico', async (req, res) => {
+  const clinicaId = String(req.query.clinicaId || '').trim();
+  if (!clinicaId) return res.status(400).json({ error: 'clinicaId é obrigatório' });
+  if (!req.usuario || !['admin', 'super_admin'].includes(req.usuario.tipo)) return res.status(403).json({ error: 'Somente o administrador.' });
+  try {
+    res.json(await diagnosticarWebhook(clinicaId, req));
+  } catch (e) {
+    res.status(500).json({ error: `Não foi possível fazer o diagnóstico: ${e.message}` });
+  }
+});
+
+router.post('/webhook-diagnostico/corrigir', async (req, res) => {
+  const clinicaId = String(req.body?.clinicaId || '').trim();
+  if (!clinicaId) return res.status(400).json({ error: 'clinicaId é obrigatório' });
+  if (!req.usuario || !['admin', 'super_admin'].includes(req.usuario.tipo)) return res.status(403).json({ error: 'Somente o administrador.' });
+  try {
+    const antes = await diagnosticarWebhook(clinicaId, req);
+    if (!antes.sessao) return res.status(400).json({ error: 'A clínica ainda não tem sessão.' });
+    const serverUrl = (antes.servidor !== evolution.EVOLUTION && evolution.wahaUrlDoEnv(antes.servidor)) || servidorWahaDaPlataforma();
+    const cfg = await dbGetAsync(getClinicaDB(clinicaId), 'SELECT serverUrl FROM whatsapp_config WHERE clinicaId = ?', [clinicaId]).catch(() => null);
+    const r = await configurarWebhookNoWaha(serverUrl || cleanUrl(cfg?.serverUrl || ''), antes.sessao, antes.urlEsperada, getWahaApiKey());
+    console.log(`🔔 [diagnóstico] ${antes.sessao}: correção ${r.success ? 'ok' : 'falhou'} → ${antes.urlEsperada}`);
+    res.json({ success: Boolean(r.success), detalhe: r.success ? 'Webhook gravado.' : r.error || 'O servidor do WhatsApp não aceitou o webhook.', diagnostico: await diagnosticarWebhook(clinicaId, req) });
+  } catch (e) {
+    res.status(500).json({ error: `Não foi possível corrigir: ${e.message}` });
+  }
+});
+
 router.post('/session/criar-da-clinica', async (req, res) => {
   const usuario = req.usuario;
   const clinicaId = String(req.body?.clinicaId || '').trim();
